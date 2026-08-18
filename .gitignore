@@ -364,3 +364,4 @@ FodyWeavers.xsd
 
 *.MD
 *.docx
+appsettings.Development.json
