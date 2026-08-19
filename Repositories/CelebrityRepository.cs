@@ -26,6 +26,13 @@ namespace StanTrack.Repositories
             return await q.OrderBy(c => c.Name).ToListAsync();
         }
 
+        public async Task<IReadOnlyList<string>> GetDistinctCategoriesAsync()
+            => await context.Celebrities
+                .Select(c => c.Category)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToListAsync();
+
         public async Task AddAsync(Celebrity celebrity)
             => await context.Celebrities.AddAsync(celebrity);
 

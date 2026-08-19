@@ -6,6 +6,7 @@ namespace StanTrack.Interfaces
     {
         Task<Celebrity?> GetByIdAsync(int id);
         Task<IReadOnlyList<Celebrity>> SearchAsync(string? query, string? category);
+        Task<IReadOnlyList<string>> GetDistinctCategoriesAsync();
         Task AddAsync(Celebrity celebrity);
         void Update(Celebrity celebrity);
         void Delete(Celebrity celebrity);

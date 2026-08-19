@@ -1,0 +1,20 @@
+@model StanTrack.Models.Celebrity
+
+<div class="card h-100">
+    @if (!string.IsNullOrEmpty(Model.PhotoUrl))
+    {
+        <img src="@Model.PhotoUrl" class="card-img-top" alt="@Model.Name" style="object-fit:cover; max-height:220px;" />
+    }
+    <div class="card-body d-flex flex-column">
+        <h5 class="card-title">@Model.Name</h5>
+        <p class="card-text text-muted mb-3">@Model.Category</p>
+        <div class="mt-auto">
+            <a asp-controller="Celebrities" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary">Details</a>
+            @if (User.IsInRole("Admin"))
+            {
+                <a asp-controller="Celebrities" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
+                <a asp-controller="Celebrities" asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-danger">Delete</a>
+            }
+        </div>
+    </div>
+</div>

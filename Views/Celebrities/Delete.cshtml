@@ -1,0 +1,24 @@
+@model StanTrack.Models.Celebrity
+@{
+    ViewData["Title"] = "Delete " + Model.Name;
+}
+
+<h1>Delete @Model.Name</h1>
+
+<div class="alert alert-warning mt-3">
+    Are you sure you want to delete <strong>@Model.Name</strong>? This will also delete any events, follows, and comments associated with this celebrity.
+</div>
+
+<dl class="row">
+    <dt class="col-sm-3">Name</dt>
+    <dd class="col-sm-9">@Model.Name</dd>
+
+    <dt class="col-sm-3">Category</dt>
+    <dd class="col-sm-9">@Model.Category</dd>
+</dl>
+
+<form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+    @Html.AntiForgeryToken()
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+</form>
