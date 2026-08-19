@@ -8,7 +8,6 @@ using StanTrack.ViewModels;
 
 namespace StanTrack.Controllers
 {
-    [Authorize]
     public class CelebritiesController : Controller
     {
         private readonly IUnitOfWork _uow;
@@ -21,6 +20,7 @@ namespace StanTrack.Controllers
         }
 
         // GET: /Celebrities
+        [AllowAnonymous]
         public async Task<IActionResult> Index(string? query, string? category)
         {
             var celebrities = await _uow.Celebrities.SearchAsync(query, category);
@@ -34,6 +34,7 @@ namespace StanTrack.Controllers
         }
 
         // GET: /Celebrities/Details/5
+        [AllowAnonymous]
         public async Task<IActionResult> Details(int id)
         {
             var celebrity = await _uow.Celebrities.GetByIdAsync(id);
