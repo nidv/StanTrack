@@ -26,9 +26,15 @@ namespace StanTrack.Controllers
             var celebrities = await _uow.Celebrities.SearchAsync(query, category);
             var categories = await _uow.Celebrities.GetDistinctCategoriesAsync();
 
+            var userId = _userManager.GetUserId(User);
+            var followedIds = userId is null
+                ? new HashSet<int>()
+                : new HashSet<int>(await _uow.Follows.GetFollowedCelebrityIdsAsync(userId));
+
             ViewBag.Query = query;
             ViewBag.Category = category;
             ViewBag.Categories = new SelectList(categories, category);
+            ViewData["FollowedCelebrityIds"] = followedIds;
 
             return View(celebrities);
         }
@@ -46,7 +52,12 @@ namespace StanTrack.Controllers
             var upcomingEvents = await _uow.Events.GetUpcomingForCelebritiesAsync(
                 new[] { celebrity.Id }, DateTime.UtcNow);
 
+            var userId = _userManager.GetUserId(User);
+            var isFollowing = userId is not null
+                && await _uow.Follows.IsFollowingAsync(userId, celebrity.Id);
+
             ViewBag.UpcomingEvents = upcomingEvents;
+            ViewBag.IsFollowing = isFollowing;
             return View(celebrity);
         }
 

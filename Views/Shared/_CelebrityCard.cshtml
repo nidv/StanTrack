@@ -1,4 +1,9 @@
 @model StanTrack.Models.Celebrity
+@{
+    var followedIds = ViewData["FollowedCelebrityIds"] as HashSet<int> ?? new HashSet<int>();
+    var isFollowing = followedIds.Contains(Model.Id);
+    var isSignedIn = User.Identity?.IsAuthenticated == true;
+}
 
 <div class="card h-100">
     @if (!string.IsNullOrEmpty(Model.PhotoUrl))
@@ -8,8 +13,19 @@
     <div class="card-body d-flex flex-column">
         <h5 class="card-title">@Model.Name</h5>
         <p class="card-text text-muted mb-3">@Model.Category</p>
-        <div class="mt-auto">
+        <div class="mt-auto d-flex flex-wrap gap-1">
             <a asp-controller="Celebrities" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-primary">Details</a>
+            @if (isSignedIn)
+            {
+                <form asp-controller="Follow" asp-action="Toggle" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="celebrityId" value="@Model.Id" />
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <button type="submit" class="btn btn-sm @(isFollowing ? "btn-outline-danger" : "btn-primary")">
+                        @(isFollowing ? "Unfollow" : "Follow")
+                    </button>
+                </form>
+            }
             @if (User.IsInRole("Admin"))
             {
                 <a asp-controller="Celebrities" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-sm btn-outline-secondary">Edit</a>
