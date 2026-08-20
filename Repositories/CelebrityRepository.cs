@@ -10,6 +10,19 @@ namespace StanTrack.Repositories
         public Task<Celebrity?> GetByIdAsync(int id)
             => context.Celebrities.FirstOrDefaultAsync(c => c.Id == id);
 
+        public async Task<IReadOnlyList<Celebrity>> GetByIdsAsync(IEnumerable<int> ids)
+        {
+            var idList = ids.ToList();
+            if (idList.Count == 0)
+            {
+                return Array.Empty<Celebrity>();
+            }
+            return await context.Celebrities
+                .Where(c => idList.Contains(c.Id))
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+        }
+
         public async Task<IReadOnlyList<Celebrity>> SearchAsync(string? query, string? category)
         {
             var q = context.Celebrities.AsQueryable();

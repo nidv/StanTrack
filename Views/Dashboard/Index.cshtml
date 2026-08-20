@@ -1,0 +1,47 @@
+@model StanTrack.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h1 class="mb-4">My Dashboard</h1>
+
+@if (Model.FollowedCelebrities.Count == 0)
+{
+    <div class="alert alert-info">
+        You're not following any celebrities yet. <a asp-controller="Celebrities" asp-action="Index">Browse celebrities</a> to get started.
+    </div>
+}
+else
+{
+    <h2 class="h4 mb-3">Following (@Model.FollowedCelebrities.Count)</h2>
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+        @foreach (var celebrity in Model.FollowedCelebrities)
+        {
+            <div class="col">
+                <partial name="_CelebrityCard" model="celebrity" />
+            </div>
+        }
+    </div>
+
+    <h2 class="h4 mb-3">Upcoming Events</h2>
+    @if (Model.UpcomingEvents.Count == 0)
+    {
+        <p class="text-muted">No upcoming events for the celebrities you follow.</p>
+    }
+    else
+    {
+        <ul class="list-group">
+            @foreach (var ev in Model.UpcomingEvents)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>@ev.Title</strong>
+                        <span class="badge bg-secondary ms-2">@ev.EventType</span>
+                        <span class="text-muted ms-2">@ev.EventDate.ToString("yyyy-MM-dd")</span>
+                    </div>
+                    <a asp-controller="Celebrities" asp-action="Details" asp-route-id="@ev.CelebrityId" class="btn btn-sm btn-outline-primary">View</a>
+                </li>
+            }
+        </ul>
+    }
+}
