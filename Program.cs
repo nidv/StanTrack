@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using StanTrack.Data;
+using StanTrack.ExternalApis;
 using StanTrack.Interfaces;
 using StanTrack.Models;
 using StanTrack.Repositories;
@@ -22,6 +23,22 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+builder.Services.AddHttpClient<TicketmasterClient>(c =>
+    c.BaseAddress = new Uri("https://app.ticketmaster.com/discovery/v2/"));
+builder.Services.AddHttpClient<TmdbClient>(c =>
+    c.BaseAddress = new Uri("https://api.themoviedb.org/3/"));
+builder.Services.AddHttpClient<MusicBrainzClient>(c =>
+{
+    c.BaseAddress = new Uri("https://musicbrainz.org/ws/2/");
+    c.DefaultRequestHeaders.UserAgent.ParseAdd("StanTrack/1.0 (https://github.com/lexutb/StanTrack)");
+});
+builder.Services.AddScoped<IEnumerable<IEventFetchService>>(sp => new IEventFetchService[]
+{
+    sp.GetRequiredService<TicketmasterClient>(),
+    sp.GetRequiredService<TmdbClient>(),
+    sp.GetRequiredService<MusicBrainzClient>(),
+});
 
 var app = builder.Build();
 
