@@ -39,6 +39,12 @@
             <dt class="col-sm-3">Category</dt>
             <dd class="col-sm-9">@Model.Category</dd>
 
+            @if (Model.DateOfBirth.HasValue)
+            {
+                <dt class="col-sm-3">Born / Formed</dt>
+                <dd class="col-sm-9">@Model.DateOfBirth.Value.ToString("MMMM d, yyyy")</dd>
+            }
+
             @if (!string.IsNullOrEmpty(Model.Bio))
             {
                 <dt class="col-sm-3">Bio</dt>

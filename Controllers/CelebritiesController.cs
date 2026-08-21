@@ -91,6 +91,7 @@ namespace StanTrack.Controllers
                 Category = vm.Category,
                 Bio = vm.Bio,
                 PhotoUrl = vm.PhotoUrl,
+                DateOfBirth = vm.DateOfBirth,
                 CreatedByUserId = userId
             };
 
@@ -116,7 +117,8 @@ namespace StanTrack.Controllers
                 Name = celebrity.Name,
                 Category = celebrity.Category,
                 Bio = celebrity.Bio,
-                PhotoUrl = celebrity.PhotoUrl
+                PhotoUrl = celebrity.PhotoUrl,
+                DateOfBirth = celebrity.DateOfBirth
             };
 
             return View(vm);
@@ -148,6 +150,7 @@ namespace StanTrack.Controllers
             celebrity.Category = vm.Category;
             celebrity.Bio = vm.Bio;
             celebrity.PhotoUrl = vm.PhotoUrl;
+            celebrity.DateOfBirth = vm.DateOfBirth;
 
             _uow.Celebrities.Update(celebrity);
             await _uow.SaveChangesAsync();

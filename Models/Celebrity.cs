@@ -7,6 +7,7 @@ namespace StanTrack.Models
         public string Category { get; set; } = string.Empty; // "K-pop", "Actor", "Musician", etc.
         public string? Bio { get; set; }
         public string? PhotoUrl { get; set; }
+        public DateTime? DateOfBirth { get; set; }   // birth date for people, inception date for groups
         public string CreatedByUserId { get; set; } = string.Empty;
         public ApplicationUser? CreatedBy { get; set; }
         public ICollection<Event> Events { get; set; } = new List<Event>();

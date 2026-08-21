@@ -21,5 +21,11 @@ namespace StanTrack.ViewModels
         [StringLength(1000)]
         [Display(Name = "Photo URL")]
         public string? PhotoUrl { get; set; }
+
+        // Date of birth for people; inception date for groups. Nullable so existing rows
+        // and non-individual entries (K-pop groups prior to a manual inception date) stay valid.
+        [DataType(DataType.Date)]
+        [Display(Name = "Date of birth / Inception")]
+        public DateTime? DateOfBirth { get; set; }
     }
 }
