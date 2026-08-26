@@ -18,7 +18,7 @@ namespace StanTrack.BackgroundJobs
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             using var timer = new PeriodicTimer(SyncInterval);
-            do
+            while (await timer.WaitForNextTickAsync(stoppingToken))
             {
                 try
                 {
@@ -35,7 +35,6 @@ namespace StanTrack.BackgroundJobs
                     _logger.LogError(ex, "Event sync tick failed");
                 }
             }
-            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
     }
 }
