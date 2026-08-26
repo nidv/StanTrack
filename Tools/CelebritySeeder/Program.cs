@@ -7,17 +7,24 @@ using Microsoft.Data.SqlClient;
 //     --connection-string "Server=(localdb)\mssqllocaldb;Database=StanTrackDb;Trusted_Connection=True;MultipleActiveResultSets=true" `
 //     --created-by-user-id "<Id from AspNetUsers for admin@stantrack.local>"
 //
-// Two-pass design: pass 1 pulls only the celebrity ID / name / dob (cheap SPARQL).
-// Pass 2 batches the IDs (50 at a time) back into SPARQL via VALUES to fetch
-// bio + photo per person. Splitting the cheap filter from the optional fields
-// sidesteps the query-cost timeouts that hit when OPTIONAL blocks are fetched
-// against the entire occupation-subtree.
+// Two modes:
+//   * Default (no --csv): original category-bucketed SPARQL queries over Wikidata (~200 actors
+//     + ~200 musicians + ~100 k-pop). Bulk-fetch but hits whoever Wikidata returns, fame varies.
+//   * --csv <path> mode: reads curated (rank,name,category) rows, resolves each name via the
+//     Wikidata wbsearchentities API (NOT SPARQL), then runs the same pass-2 SPARQL enrichment
+//     (bio + photo). Maps CSV categories onto the StanTrack schema:
+//        actor       -> Actor
+//        actress     -> Actress
+//        artist      -> Artist
+//        k-pop group -> K-Pop
+//     In --csv mode callers typically wipe Celebrities first; this mode does NOT wipe, it
+//     just inserts (dedup happens against the existing-names set loaded at startup).
 
 var argsDict = ParseArgs(args);
 if (!argsDict.TryGetValue("--connection-string", out var connectionString) ||
     !argsDict.TryGetValue("--created-by-user-id", out var createdByUserId))
 {
-    Console.Error.WriteLine("Usage: CelebritySeeder --connection-string <cs> --created-by-user-id <guid>");
+    Console.Error.WriteLine("Usage: CelebritySeeder --connection-string <cs> --created-by-user-id <guid> [--csv <path-to-top-100.csv>]");
     return 2;
 }
 
@@ -29,92 +36,156 @@ http.Timeout = TimeSpan.FromSeconds(120);
 var existingNames = await LoadExistingNamesAsync(connectionString);
 Console.WriteLine($"Existing celebrities in DB: {existingNames.Count}");
 
-var categories = new[]
+int totalInserted = 0;
+int totalSkipped = 0;
+
+if (argsDict.TryGetValue("--csv", out var csvPath))
 {
-    new CategorySpec(
-        Category: "Actor",
-        Limit: 200,
-        // wikibase:sitelinks causes 504s even without ORDER BY; dropped.
-        Query: """
-            SELECT DISTINCT ?person ?personLabel ?dob WHERE {
-              VALUES ?occ { wd:Q33999 wd:Q10800557 wd:Q10798782 }
-              ?person wdt:P106 ?occ ;
-                      wdt:P569 ?dob .
-              FILTER NOT EXISTS { ?person wdt:P570 ?d }
-              FILTER(YEAR(NOW()) - YEAR(?dob) < 75)
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-            }
-            LIMIT 200
-            """),
-    new CategorySpec(
-        Category: "Musician",
-        Limit: 200,
-        // Singer + pop singer + rapper + singer-songwriter (no generic Q639669 "musician" —
-        // that bucket includes every baroque harpsichordist and session bassist).
-        Query: """
-            SELECT DISTINCT ?person ?personLabel ?dob WHERE {
-              VALUES ?occ { wd:Q177220 wd:Q205375 wd:Q2252262 wd:Q488205 }
-              ?person wdt:P106 ?occ ;
-                      wdt:P569 ?dob .
-              FILTER NOT EXISTS { ?person wdt:P570 ?d }
-              FILTER(YEAR(NOW()) - YEAR(?dob) < 75)
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-            }
-            LIMIT 200
-            """),
-    new CategorySpec(
-        Category: "K-pop",
-        Limit: 100,
-        // Genre P136 matches songs, so constrain to instance-of human or musical group.
-        // Sitelinks threshold 25 (K-pop acts typically have fewer wiki sitelinks than
-        // Hollywood actors but more than 25 when genuinely famous).
-        Query: """
-            SELECT DISTINCT ?person ?personLabel ?bornOrFormed WHERE {
-              VALUES ?instanceOf { wd:Q5 wd:Q215380 }
-              ?person wdt:P31 ?instanceOf ;
-                      wdt:P136 wd:Q213665 .
-              FILTER NOT EXISTS { ?person wdt:P570 ?d }
-              FILTER NOT EXISTS { ?person wdt:P576 ?disbanded }
-              OPTIONAL { ?person wdt:P569 ?dob }
-              OPTIONAL { ?person wdt:P571 ?inception }
-              BIND(COALESCE(?dob, ?inception) AS ?bornOrFormed)
-              FILTER(BOUND(?bornOrFormed))
-              FILTER(YEAR(NOW()) - YEAR(?bornOrFormed) < 75)
-              SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-            }
-            LIMIT 100
-            """),
-};
-
-var totalInserted = 0;
-var totalSkipped = 0;
-
-foreach (var spec in categories)
+    (totalInserted, totalSkipped) = await RunCsvModeAsync(http, csvPath, connectionString, createdByUserId, existingNames);
+}
+else
 {
-    Console.WriteLine($"\n=== {spec.Category} (target {spec.Limit}) ===");
-
-    var rows = await RunPass1Async(http, spec);
-    Console.WriteLine($"  pass 1: {rows.Count} names (with QID + dob)");
-
-    if (rows.Count == 0)
-    {
-        Console.WriteLine($"  pass 1 returned no rows; skipping {spec.Category}");
-        continue;
-    }
-
-    await EnrichWithBioAndPhotoAsync(http, rows);
-    var withPhoto = rows.Count(r => !string.IsNullOrWhiteSpace(r.PhotoUrl));
-    var withBio = rows.Count(r => !string.IsNullOrWhiteSpace(r.Bio));
-    Console.WriteLine($"  pass 2: enriched {withBio} bios / {withPhoto} photos");
-
-    var (inserted, skipped) = await InsertAsync(connectionString, createdByUserId, spec.Category, rows, existingNames);
-    Console.WriteLine($"  inserted {inserted}, skipped {skipped} (already in DB or insert failed)");
-    totalInserted += inserted;
-    totalSkipped += skipped;
+    (totalInserted, totalSkipped) = await RunBulkCategoriesModeAsync(http, connectionString, createdByUserId, existingNames);
 }
 
 Console.WriteLine($"\nDone. Total inserted: {totalInserted}. Total skipped: {totalSkipped}.");
 return 0;
+
+static async Task<(int, int)> RunCsvModeAsync(HttpClient http, string csvPath, string connectionString, string createdByUserId, HashSet<string> existingNames)
+{
+    var rows = LoadCsv(csvPath);
+    Console.WriteLine($"CSV loaded: {rows.Count} rows");
+    Console.WriteLine($"  Actor: {rows.Count(r => r.Category == "Actor")}");
+    Console.WriteLine($"  Actress: {rows.Count(r => r.Category == "Actress")}");
+    Console.WriteLine($"  Artist: {rows.Count(r => r.Category == "Artist")}");
+    Console.WriteLine($"  K-Pop: {rows.Count(r => r.Category == "K-Pop")}");
+
+    // Resolve names to QIDs via wbsearchentities. Sequential with a small pause: Wikidata
+    // is polite about it but we don't need to hammer them with 400 concurrent lookups.
+    var resolved = new List<SeedRow>();
+    var unresolved = new List<string>();
+    foreach (var csv in rows)
+    {
+        var qid = await ResolveQidByNameAsync(http, csv.Name, csv.CsvCategory);
+        if (qid is null)
+        {
+            Console.WriteLine($"  unresolved: {csv.Name} ({csv.CsvCategory})");
+            unresolved.Add(csv.Name);
+            continue;
+        }
+        resolved.Add(new SeedRow
+        {
+            WikidataQid = qid,
+            Name = csv.Name,
+            Category = csv.Category,
+        });
+        // ~200ms pause between search calls -> ~80s total for 400 names. Well under Wikidata's
+        // tolerance. Search endpoint is way cheaper than SPARQL too.
+        await Task.Delay(200);
+    }
+    Console.WriteLine($"Resolved {resolved.Count}/{rows.Count} names to QIDs; {unresolved.Count} unresolved.");
+
+    // Enrich: bio + photo + dob, same shape as bulk mode but restricted to resolved QIDs.
+    await EnrichWithBioPhotoAndDobAsync(http, resolved);
+    var withPhoto = resolved.Count(r => !string.IsNullOrWhiteSpace(r.PhotoUrl));
+    var withBio = resolved.Count(r => !string.IsNullOrWhiteSpace(r.Bio));
+    var withDob = resolved.Count(r => r.BornOrFormed.HasValue);
+    Console.WriteLine($"Enriched: {withBio} bios / {withPhoto} photos / {withDob} dobs");
+
+    return await InsertAsync(connectionString, createdByUserId, resolved, existingNames);
+}
+
+static async Task<(int, int)> RunBulkCategoriesModeAsync(HttpClient http, string connectionString, string createdByUserId, HashSet<string> existingNames)
+{
+    var categories = new[]
+    {
+        new CategorySpec(
+            Category: "Actor",
+            Limit: 200,
+            // wikibase:sitelinks causes 504s even without ORDER BY; dropped.
+            Query: """
+                SELECT DISTINCT ?person ?personLabel ?dob WHERE {
+                  VALUES ?occ { wd:Q33999 wd:Q10800557 wd:Q10798782 }
+                  ?person wdt:P106 ?occ ;
+                          wdt:P569 ?dob .
+                  FILTER NOT EXISTS { ?person wdt:P570 ?d }
+                  FILTER(YEAR(NOW()) - YEAR(?dob) < 75)
+                  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+                }
+                LIMIT 200
+                """),
+        new CategorySpec(
+            Category: "Musician",
+            Limit: 200,
+            // Singer + pop singer + rapper + singer-songwriter (no generic Q639669 "musician" —
+            // that bucket includes every baroque harpsichordist and session bassist).
+            Query: """
+                SELECT DISTINCT ?person ?personLabel ?dob WHERE {
+                  VALUES ?occ { wd:Q177220 wd:Q205375 wd:Q2252262 wd:Q488205 }
+                  ?person wdt:P106 ?occ ;
+                          wdt:P569 ?dob .
+                  FILTER NOT EXISTS { ?person wdt:P570 ?d }
+                  FILTER(YEAR(NOW()) - YEAR(?dob) < 75)
+                  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+                }
+                LIMIT 200
+                """),
+        new CategorySpec(
+            Category: "K-Pop",
+            Limit: 100,
+            // Genre P136 matches songs, so constrain to instance-of human or musical group.
+            // Sitelinks threshold 25 (K-pop acts typically have fewer wiki sitelinks than
+            // Hollywood actors but more than 25 when genuinely famous).
+            Query: """
+                SELECT DISTINCT ?person ?personLabel ?bornOrFormed WHERE {
+                  VALUES ?instanceOf { wd:Q5 wd:Q215380 }
+                  ?person wdt:P31 ?instanceOf ;
+                          wdt:P136 wd:Q213665 .
+                  FILTER NOT EXISTS { ?person wdt:P570 ?d }
+                  FILTER NOT EXISTS { ?person wdt:P576 ?disbanded }
+                  OPTIONAL { ?person wdt:P569 ?dob }
+                  OPTIONAL { ?person wdt:P571 ?inception }
+                  BIND(COALESCE(?dob, ?inception) AS ?bornOrFormed)
+                  FILTER(BOUND(?bornOrFormed))
+                  FILTER(YEAR(NOW()) - YEAR(?bornOrFormed) < 75)
+                  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+                }
+                LIMIT 100
+                """),
+    };
+
+    var inserted = 0;
+    var skipped = 0;
+
+    foreach (var spec in categories)
+    {
+        Console.WriteLine($"\n=== {spec.Category} (target {spec.Limit}) ===");
+
+        var rows = await RunBulkPass1Async(http, spec);
+        Console.WriteLine($"  pass 1: {rows.Count} names (with QID + dob)");
+
+        if (rows.Count == 0)
+        {
+            Console.WriteLine($"  pass 1 returned no rows; skipping {spec.Category}");
+            continue;
+        }
+
+        await EnrichWithBioPhotoAndDobAsync(http, rows);
+        var withPhoto = rows.Count(r => !string.IsNullOrWhiteSpace(r.PhotoUrl));
+        var withBio = rows.Count(r => !string.IsNullOrWhiteSpace(r.Bio));
+        Console.WriteLine($"  pass 2: enriched {withBio} bios / {withPhoto} photos");
+
+        // Bulk mode has a single category for the whole batch — apply it before insert.
+        foreach (var r in rows) r.Category = spec.Category;
+
+        var (i, s) = await InsertAsync(connectionString, createdByUserId, rows, existingNames);
+        Console.WriteLine($"  inserted {i}, skipped {s} (already in DB or insert failed)");
+        inserted += i;
+        skipped += s;
+    }
+
+    return (inserted, skipped);
+}
 
 static Dictionary<string, string> ParseArgs(string[] argv)
 {
@@ -124,6 +195,112 @@ static Dictionary<string, string> ParseArgs(string[] argv)
         d[argv[i]] = argv[i + 1];
     }
     return d;
+}
+
+static List<CsvRow> LoadCsv(string path)
+{
+    var rows = new List<CsvRow>();
+    string? header = null;
+    foreach (var line in File.ReadLines(path))
+    {
+        if (string.IsNullOrWhiteSpace(line)) continue;
+        if (header is null)
+        {
+            header = line;
+            continue;
+        }
+        // CSV is rank,name,category; names are simple (no embedded commas seen in practice).
+        // If a name ever does need a comma, swap this for a real CSV parser.
+        var parts = line.Split(',', 3);
+        if (parts.Length < 3) continue;
+        var csvCategory = parts[2].Trim().ToLowerInvariant();
+        var mapped = csvCategory switch
+        {
+            "actor" => "Actor",
+            "actress" => "Actress",
+            "artist" => "Artist",
+            "k-pop group" => "K-Pop",
+            _ => (string?)null,
+        };
+        if (mapped is null)
+        {
+            Console.Error.WriteLine($"  CSV row skipped (unknown category '{csvCategory}'): {line}");
+            continue;
+        }
+        rows.Add(new CsvRow
+        {
+            Name = parts[1].Trim(),
+            CsvCategory = csvCategory,
+            Category = mapped,
+        });
+    }
+    return rows;
+}
+
+static async Task<string?> ResolveQidByNameAsync(HttpClient http, string name, string csvCategory)
+{
+    // wbsearchentities is Wikidata's general-purpose search. For K-pop we deliberately
+    // bias toward groups by ALSO asking for instance-of filtering on the result side:
+    // we fetch the top 5 candidates and prefer one whose description mentions "group"/"band"
+    // or whose entity we can verify is Q215380 in a followup call. To keep this simple
+    // we just take the top hit EXCEPT for k-pop, where we take the first candidate whose
+    // description hints at "group", "band", "boy band", "girl group" — falling back to
+    // the top hit if none match.
+
+    // Try the name as-is first; fall back to a parenthetical-stripped form if that returns nothing.
+    // "WJSN (Cosmic Girls)" doesn't match anything, but "WJSN" does.
+    var qid = await TrySearchAsync(http, name, csvCategory);
+    if (qid is null)
+    {
+        var stripped = System.Text.RegularExpressions.Regex.Replace(name, @"\s*\([^)]*\)", "").Trim();
+        if (!string.Equals(stripped, name, StringComparison.Ordinal))
+        {
+            qid = await TrySearchAsync(http, stripped, csvCategory);
+        }
+    }
+    return qid;
+}
+
+static async Task<string?> TrySearchAsync(HttpClient http, string query, string csvCategory)
+{
+    var url = "https://www.wikidata.org/w/api.php?action=wbsearchentities"
+            + "&search=" + Uri.EscapeDataString(query)
+            + "&language=en&format=json&limit=5";
+    using var response = await http.GetAsync(url);
+    response.EnsureSuccessStatusCode();
+    await using var stream = await response.Content.ReadAsStreamAsync();
+    using var doc = await JsonDocument.ParseAsync(stream);
+    if (!doc.RootElement.TryGetProperty("search", out var search) || search.GetArrayLength() == 0)
+    {
+        return null;
+    }
+
+    var isKpop = csvCategory == "k-pop group";
+    string? topQid = null;
+    foreach (var hit in search.EnumerateArray())
+    {
+        var qid = hit.GetProperty("id").GetString();
+        if (qid is null) continue;
+        topQid ??= qid;
+
+        if (!isKpop)
+        {
+            // Non-k-pop: take the first hit and move on.
+            return qid;
+        }
+
+        // K-pop: prefer a hit whose description suggests a musical group.
+        if (hit.TryGetProperty("description", out var descEl))
+        {
+            var desc = descEl.GetString() ?? string.Empty;
+            var d = desc.ToLowerInvariant();
+            if (d.Contains("group") || d.Contains("band"))
+            {
+                return qid;
+            }
+        }
+    }
+    return topQid;
 }
 
 static async Task<HashSet<string>> LoadExistingNamesAsync(string connectionString)
@@ -166,7 +343,7 @@ static async Task<JsonDocument> ExecuteSparqlAsync(HttpClient http, string sparq
     }
 }
 
-static async Task<List<SeedRow>> RunPass1Async(HttpClient http, CategorySpec spec)
+static async Task<List<SeedRow>> RunBulkPass1Async(HttpClient http, CategorySpec spec)
 {
     using var doc = await ExecuteSparqlAsync(http, spec.Query);
     var rows = new List<SeedRow>();
@@ -198,20 +375,24 @@ static async Task<List<SeedRow>> RunPass1Async(HttpClient http, CategorySpec spe
     return rows;
 }
 
-static async Task EnrichWithBioAndPhotoAsync(HttpClient http, List<SeedRow> rows)
+static async Task EnrichWithBioPhotoAndDobAsync(HttpClient http, List<SeedRow> rows)
 {
-    // Chunk by 50 QIDs. 50 keeps each pass-2 SPARQL's VALUES clause small enough
-    // that Wikidata answers quickly while still giving ~4 round-trips for 200 rows.
+    // Chunk by 50 QIDs. 50 keeps each SPARQL's VALUES clause small enough that Wikidata
+    // answers quickly while still giving ~8 round-trips for 400 rows. We fetch description,
+    // image, and date of birth in one pass — dob is needed in CSV mode where pass-1 is a
+    // name-search API that doesn't return dates.
     const int chunkSize = 50;
     for (var i = 0; i < rows.Count; i += chunkSize)
     {
         var slice = rows.Skip(i).Take(chunkSize).ToList();
         var valuesClause = string.Join(' ', slice.Select(r => "wd:" + r.WikidataQid));
         var q = """
-            SELECT ?person ?desc ?img WHERE {
+            SELECT ?person ?desc ?img ?dob ?inception WHERE {
               VALUES ?person { __VALUES__ }
               OPTIONAL { ?person schema:description ?desc . FILTER(LANG(?desc) = "en") }
               OPTIONAL { ?person wdt:P18 ?img }
+              OPTIONAL { ?person wdt:P569 ?dob }
+              OPTIONAL { ?person wdt:P571 ?inception }
             }
             """.Replace("__VALUES__", valuesClause);
 
@@ -233,6 +414,17 @@ static async Task EnrichWithBioAndPhotoAsync(HttpClient http, List<SeedRow> rows
             {
                 row.PhotoUrl = img + "?width=400";
             }
+            if (!row.BornOrFormed.HasValue)
+            {
+                if (GetProp(b, "dob") is { } dob && DateTime.TryParse(dob, out var parsedDob))
+                {
+                    row.BornOrFormed = parsedDob;
+                }
+                else if (GetProp(b, "inception") is { } inc && DateTime.TryParse(inc, out var parsedInc))
+                {
+                    row.BornOrFormed = parsedInc;
+                }
+            }
         }
     }
 }
@@ -247,7 +439,6 @@ static string? GetProp(JsonElement binding, string prop)
 static async Task<(int inserted, int skipped)> InsertAsync(
     string connectionString,
     string createdByUserId,
-    string category,
     List<SeedRow> rows,
     HashSet<string> existingNames)
 {
@@ -259,6 +450,12 @@ static async Task<(int inserted, int skipped)> InsertAsync(
 
     foreach (var row in rows)
     {
+        if (row.Category is null)
+        {
+            Console.Error.WriteLine($"  SeedRow '{row.Name}' has no Category; skipping.");
+            skipped++;
+            continue;
+        }
         if (!existingNames.Add(row.Name!))
         {
             skipped++;
@@ -271,10 +468,16 @@ static async Task<(int inserted, int skipped)> InsertAsync(
             VALUES (@name, @category, @bio, @photoUrl, @dob, @createdBy);
             """;
         cmd.Parameters.AddWithValue("@name", row.Name);
-        cmd.Parameters.AddWithValue("@category", category);
+        cmd.Parameters.AddWithValue("@category", row.Category);
         cmd.Parameters.AddWithValue("@bio", (object?)row.Bio ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@photoUrl", (object?)row.PhotoUrl ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@dob", row.BornOrFormed.HasValue ? row.BornOrFormed.Value : DBNull.Value);
+        // Celebrity.DateOfBirth is datetime2, but AddWithValue infers datetime (range 1753–9999).
+        // Wikidata P571 (inception) sometimes has ancient dates for misresolved groups, which overflows
+        // datetime and crashes the whole batch. Explicitly type as datetime2 and clamp silly values to null.
+        var dobParam = cmd.Parameters.Add("@dob", System.Data.SqlDbType.DateTime2);
+        dobParam.Value = row.BornOrFormed.HasValue && row.BornOrFormed.Value.Year >= 1800
+            ? row.BornOrFormed.Value
+            : DBNull.Value;
         cmd.Parameters.AddWithValue("@createdBy", createdByUserId);
 
         try
@@ -282,9 +485,11 @@ static async Task<(int inserted, int skipped)> InsertAsync(
             await cmd.ExecuteNonQueryAsync();
             inserted++;
         }
-        catch (SqlException ex)
+        catch (Exception ex)
         {
-            Console.Error.WriteLine($"  INSERT failed for '{row.Name}': {ex.Message}");
+            // Catch broadly: SqlException for constraint violations, SqlTypeException for
+            // type-mapping overflows, etc. One bad row should never kill the entire seed run.
+            Console.Error.WriteLine($"  INSERT failed for '{row.Name}': {ex.GetType().Name}: {ex.Message}");
             skipped++;
             existingNames.Remove(row.Name!);
         }
@@ -299,7 +504,15 @@ internal sealed class SeedRow
 {
     public string WikidataQid { get; set; } = string.Empty;
     public string? Name { get; set; }
+    public string? Category { get; set; }
     public string? Bio { get; set; }
     public string? PhotoUrl { get; set; }
     public DateTime? BornOrFormed { get; set; }
+}
+
+internal sealed class CsvRow
+{
+    public required string Name { get; init; }
+    public required string CsvCategory { get; init; }
+    public required string Category { get; init; }
 }

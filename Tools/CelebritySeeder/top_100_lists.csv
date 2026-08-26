@@ -1,0 +1,401 @@
+rank,name,category
+1,Tom Hanks,actor
+2,Leonardo DiCaprio,actor
+3,Denzel Washington,actor
+4,Robert De Niro,actor
+5,Al Pacino,actor
+6,Tom Cruise,actor
+7,Brad Pitt,actor
+8,Morgan Freeman,actor
+9,Anthony Hopkins,actor
+10,Daniel Day-Lewis,actor
+11,Jack Nicholson,actor
+12,Christian Bale,actor
+13,Joaquin Phoenix,actor
+14,Gary Oldman,actor
+15,Samuel L. Jackson,actor
+16,Robert Downey Jr.,actor
+17,Johnny Depp,actor
+18,Will Smith,actor
+19,Matt Damon,actor
+20,Ryan Gosling,actor
+21,Timothée Chalamet,actor
+22,Cillian Murphy,actor
+23,Hugh Jackman,actor
+24,Russell Crowe,actor
+25,Ben Affleck,actor
+26,Mark Ruffalo,actor
+27,Idris Elba,actor
+28,Chris Hemsworth,actor
+29,Chris Evans,actor
+30,Chris Pratt,actor
+31,Dwayne Johnson,actor
+32,Keanu Reeves,actor
+33,Jake Gyllenhaal,actor
+34,Adam Driver,actor
+35,Michael Fassbender,actor
+36,Edward Norton,actor
+37,Kevin Spacey,actor
+38,Sean Penn,actor
+39,Colin Firth,actor
+40,Benedict Cumberbatch,actor
+41,Michael B. Jordan,actor
+42,Andrew Garfield,actor
+43,Paul Rudd,actor
+44,Mahershala Ali,actor
+45,Willem Dafoe,actor
+46,Jeff Bridges,actor
+47,Bill Murray,actor
+48,George Clooney,actor
+49,Harrison Ford,actor
+50,Brendan Fraser,actor
+51,Ryan Reynolds,actor
+52,Jason Statham,actor
+53,Liam Neeson,actor
+54,Vin Diesel,actor
+55,Matthew McConaughey,actor
+56,Jamie Foxx,actor
+57,Forest Whitaker,actor
+58,Riz Ahmed,actor
+59,Ethan Hawke,actor
+60,John Krasinski,actor
+61,Oscar Isaac,actor
+62,Pedro Pascal,actor
+63,Austin Butler,actor
+64,Barry Keoghan,actor
+65,Paul Mescal,actor
+66,Glen Powell,actor
+67,Tom Holland,actor
+68,Miles Teller,actor
+69,John Boyega,actor
+70,Daniel Kaluuya,actor
+71,LaKeith Stanfield,actor
+72,Regé-Jean Page,actor
+73,Sterling K. Brown,actor
+74,Aaron Taylor-Johnson,actor
+75,Nicholas Hoult,actor
+76,Jesse Eisenberg,actor
+77,Steve Carell,actor
+78,Owen Wilson,actor
+79,Vince Vaughn,actor
+80,Jonah Hill,actor
+81,Seth Rogen,actor
+82,Jim Carrey,actor
+83,Eddie Murphy,actor
+84,Antonio Banderas,actor
+85,Javier Bardem,actor
+86,Ralph Fiennes,actor
+87,Colin Farrell,actor
+88,Jude Law,actor
+89,Ewan McGregor,actor
+90,Christoph Waltz,actor
+91,Mads Mikkelsen,actor
+92,Viggo Mortensen,actor
+93,Kevin Costner,actor
+94,Sylvester Stallone,actor
+95,Arnold Schwarzenegger,actor
+96,Bruce Willis,actor
+97,Nicolas Cage,actor
+98,Kurt Russell,actor
+99,Michael Keaton,actor
+100,Woody Harrelson,actor
+1,Meryl Streep,actress
+2,Cate Blanchett,actress
+3,Viola Davis,actress
+4,Frances McDormand,actress
+5,Nicole Kidman,actress
+6,Charlize Theron,actress
+7,Emma Stone,actress
+8,Jennifer Lawrence,actress
+9,Natalie Portman,actress
+10,Scarlett Johansson,actress
+11,Sandra Bullock,actress
+12,Julia Roberts,actress
+13,Angelina Jolie,actress
+14,Reese Witherspoon,actress
+15,Amy Adams,actress
+16,Michelle Yeoh,actress
+17,Judi Dench,actress
+18,Helen Mirren,actress
+19,Glenn Close,actress
+20,Sigourney Weaver,actress
+21,Susan Sarandon,actress
+22,Diane Keaton,actress
+23,Jodie Foster,actress
+24,Kate Winslet,actress
+25,Halle Berry,actress
+26,Anne Hathaway,actress
+27,Zoe Saldana,actress
+28,Emily Blunt,actress
+29,Margot Robbie,actress
+30,Saoirse Ronan,actress
+31,Florence Pugh,actress
+32,Zendaya,actress
+33,Sydney Sweeney,actress
+34,Anya Taylor-Joy,actress
+35,Millie Bobby Brown,actress
+36,Sadie Sink,actress
+37,Jenna Ortega,actress
+38,Ana de Armas,actress
+39,Elizabeth Olsen,actress
+40,Brie Larson,actress
+41,Gal Gadot,actress
+42,Carey Mulligan,actress
+43,Rachel McAdams,actress
+44,Rachel Weisz,actress
+45,Marion Cotillard,actress
+46,Penélope Cruz,actress
+47,Salma Hayek,actress
+48,Isabelle Huppert,actress
+49,Tilda Swinton,actress
+50,Uma Thurman,actress
+51,Naomi Watts,actress
+52,Diane Lane,actress
+53,Laura Dern,actress
+54,Michelle Williams,actress
+55,Jessica Chastain,actress
+56,Amy Poehler,actress
+57,Tina Fey,actress
+58,Melissa McCarthy,actress
+59,Octavia Spencer,actress
+60,Taraji P. Henson,actress
+61,Regina King,actress
+62,Lupita Nyong'o,actress
+63,Danai Gurira,actress
+64,Awkwafina,actress
+65,Constance Wu,actress
+66,Gemma Chan,actress
+67,Priyanka Chopra Jonas,actress
+68,Deepika Padukone,actress
+69,Aishwarya Rai Bachchan,actress
+70,Kirsten Dunst,actress
+71,Winona Ryder,actress
+72,Drew Barrymore,actress
+73,Cameron Diaz,actress
+74,Julianne Moore,actress
+75,Robin Wright,actress
+76,Holly Hunter,actress
+77,Frances O'Connor,actress
+78,Emma Watson,actress
+79,Emma Thompson,actress
+80,Keira Knightley,actress
+81,Rachel Brosnahan,actress
+82,Claire Foy,actress
+83,Olivia Colman,actress
+84,Vanessa Kirby,actress
+85,Aimee Lou Wood,actress
+86,Britt Lower,actress
+87,Isabela Merced,actress
+88,Hunter Schafer,actress
+89,Maya Hawke,actress
+90,Emma Corrin,actress
+91,Sophie Turner,actress
+92,Maisie Williams,actress
+93,Amandla Stenberg,actress
+94,Yara Shahidi,actress
+95,Storm Reid,actress
+96,Elle Fanning,actress
+97,Dakota Fanning,actress
+98,Alicia Vikander,actress
+99,Vera Farmiga,actress
+100,Emily Watson,actress
+1,Bruno Mars,artist
+2,Justin Bieber,artist
+3,The Weeknd,artist
+4,Rihanna,artist
+5,Shakira,artist
+6,Ariana Grande,artist
+7,Taylor Swift,artist
+8,Bad Bunny,artist
+9,Lady Gaga,artist
+10,Coldplay,artist
+11,Michael Jackson,artist
+12,Drake,artist
+13,Katy Perry,artist
+14,David Guetta,artist
+15,Pitbull,artist
+16,Ed Sheeran,artist
+17,Calvin Harris,artist
+18,Maroon 5,artist
+19,Billie Eilish,artist
+20,Eminem,artist
+21,J Balvin,artist
+22,Sia,artist
+23,Kanye West,artist
+24,Post Malone,artist
+25,Dua Lipa,artist
+26,Kendrick Lamar,artist
+27,Olivia Rodrigo,artist
+28,Daddy Yankee,artist
+29,Black Eyed Peas,artist
+30,SZA,artist
+31,Harry Styles,artist
+32,Beyoncé,artist
+33,Lana Del Rey,artist
+34,Tame Impala,artist
+35,Sean Paul,artist
+36,KAROL G,artist
+37,Zara Larsson,artist
+38,Travis Scott,artist
+39,Adele,artist
+40,Justin Timberlake,artist
+41,Chris Brown,artist
+42,Shawn Mendes,artist
+43,Miley Cyrus,artist
+44,Sabrina Carpenter,artist
+45,Linkin Park,artist
+46,Burna Boy,artist
+47,Sam Smith,artist
+48,Marshmello,artist
+49,Arctic Monkeys,artist
+50,Doja Cat,artist
+51,Halsey,artist
+52,Madonna,artist
+53,Khalid,artist
+54,Imagine Dragons,artist
+55,Ellie Goulding,artist
+56,Arijit Singh,artist
+57,sombr,artist
+58,Shreya Ghoshal,artist
+59,Ozuna,artist
+60,Rauw Alejandro,artist
+61,The Chainsmokers,artist
+62,Elton John,artist
+63,Dominic Fike,artist
+64,Future,artist
+65,Fleetwood Mac,artist
+66,Alicia Keys,artist
+67,Olivia Dean,artist
+68,JENNIE,artist
+69,Britney Spears,artist
+70,Pritam,artist
+71,Ne-Yo,artist
+72,Swae Lee,artist
+73,Camila Cabello,artist
+74,Maluma,artist
+75,Queen,artist
+76,Charlie Puth,artist
+77,OneRepublic,artist
+78,JAY-Z,artist
+79,Red Hot Chili Peppers,artist
+80,DJ Snake,artist
+81,Usher,artist
+82,Jennifer Lopez,artist
+83,Lil Wayne,artist
+84,Fuerza Regida,artist
+85,A.R. Rahman,artist
+86,Nicki Minaj,artist
+87,The Neighbourhood,artist
+88,Alex Warren,artist
+89,Farruko,artist
+90,One Direction,artist
+91,Kesha,artist
+92,Oasis,artist
+93,Radiohead,artist
+94,Flo Rida,artist
+95,Selena Gomez,artist
+96,Anuel AA,artist
+97,Wiz Khalifa,artist
+98,Peso Pluma,artist
+99,50 Cent,artist
+100,Diplo,artist
+1,BTS,k-pop group
+2,BLACKPINK,k-pop group
+3,Stray Kids,k-pop group
+4,SEVENTEEN,k-pop group
+5,TWICE,k-pop group
+6,aespa,k-pop group
+7,NewJeans,k-pop group
+8,IVE,k-pop group
+9,LE SSERAFIM,k-pop group
+10,TOMORROW X TOGETHER,k-pop group
+11,ENHYPEN,k-pop group
+12,(G)I-DLE,k-pop group
+13,ATEEZ,k-pop group
+14,NCT DREAM,k-pop group
+15,NCT 127,k-pop group
+16,EXO,k-pop group
+17,BIGBANG,k-pop group
+18,Red Velvet,k-pop group
+19,MAMAMOO,k-pop group
+20,ITZY,k-pop group
+21,KATSEYE,k-pop group
+22,BABYMONSTER,k-pop group
+23,ZEROBASEONE,k-pop group
+24,RIIZE,k-pop group
+25,TREASURE,k-pop group
+26,SHINee,k-pop group
+27,Super Junior,k-pop group
+28,Girls' Generation,k-pop group
+29,2NE1,k-pop group
+30,WINNER,k-pop group
+31,iKON,k-pop group
+32,Monsta X,k-pop group
+33,GOT7,k-pop group
+34,Astro,k-pop group
+35,The Boyz,k-pop group
+36,Xdinary Heroes,k-pop group
+37,Kep1er,k-pop group
+38,fromis_9,k-pop group
+39,STAYC,k-pop group
+40,Weeekly,k-pop group
+41,Oh My Girl,k-pop group
+42,Apink,k-pop group
+43,Loona,k-pop group
+44,Everglow,k-pop group
+45,Dreamcatcher,k-pop group
+46,WJSN (Cosmic Girls),k-pop group
+47,Pentagon,k-pop group
+48,VICTON,k-pop group
+49,Cravity,k-pop group
+50,ONF,k-pop group
+51,ONEUS,k-pop group
+52,AB6IX,k-pop group
+53,Golden Child,k-pop group
+54,TEMPEST,k-pop group
+55,P1Harmony,k-pop group
+56,xikers,k-pop group
+57,Loossemble,k-pop group
+58,NMIXX,k-pop group
+59,Billlie,k-pop group
+60,Purple Kiss,k-pop group
+61,H1-KEY,k-pop group
+62,Woo!ah!,k-pop group
+63,CLASS:y,k-pop group
+64,Kiss of Life,k-pop group
+65,Rescene,k-pop group
+66,tripleS,k-pop group
+67,UNIS,k-pop group
+68,Younite,k-pop group
+69,TRI.BE,k-pop group
+70,OnlyOneOf,k-pop group
+71,BOYNEXTDOOR,k-pop group
+72,ILLIT,k-pop group
+73,Hearts2Hearts,k-pop group
+74,VCHA,k-pop group
+75,Meovv,k-pop group
+76,N.Flying,k-pop group
+77,Highlight,k-pop group
+78,B.A.P,k-pop group
+79,BtoB,k-pop group
+80,Infinite,k-pop group
+81,Block B,k-pop group
+82,Teen Top,k-pop group
+83,U-KISS,k-pop group
+84,VIXX,k-pop group
+85,SF9,k-pop group
+86,CIX,k-pop group
+87,Wanna One,k-pop group
+88,X1,k-pop group
+89,IZ*ONE,k-pop group
+90,Weki Meki,k-pop group
+91,Gugudan,k-pop group
+92,Lovelyz,k-pop group
+93,DIA,k-pop group
+94,Berry Good,k-pop group
+95,April,k-pop group
+96,Cignature,k-pop group
+97,Rocket Punch,k-pop group
+98,Cherry Bullet,k-pop group
+99,Secret Number,k-pop group
+100,Bvndit,k-pop group
