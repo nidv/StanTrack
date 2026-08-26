@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
 using StanTrack.BackgroundJobs;
 using StanTrack.Data;
@@ -6,6 +7,7 @@ using StanTrack.ExternalApis;
 using StanTrack.Interfaces;
 using StanTrack.Models;
 using StanTrack.Repositories;
+using StanTrack.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +45,9 @@ builder.Services.AddScoped<IEnumerable<IEventFetchService>>(sp => new IEventFetc
 
 builder.Services.AddScoped<EventSyncService>();
 builder.Services.AddHostedService<StanTrackSyncBackgroundService>();
+
+builder.Services.AddTransient<IEmailSender, BrevoEmailSender>();
+builder.Services.AddTransient<IEmailSender<ApplicationUser>, BrevoEmailSender>();
 
 var app = builder.Build();
 
