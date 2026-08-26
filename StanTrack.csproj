@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>aspnet-StanTrack-993bfa92-2e8f-4ecc-817d-77e60fd78485</UserSecretsId>
+    <!-- Exclude Tools/ from the compile/item glob so standalone helper projects
+         (e.g. Tools/CelebritySeeder) don't leak their .cs / AssemblyInfo.cs into this build. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tools/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
