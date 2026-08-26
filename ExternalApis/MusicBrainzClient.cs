@@ -8,6 +8,14 @@ namespace StanTrack.ExternalApis
 {
     public class MusicBrainzClient : IEventFetchService
     {
+        // MusicBrainz rate limit: 1 request per second averaged, applied per source IP.
+        // Both calls in this client share one HttpClient, so pacing here paces every
+        // MusicBrainz call the process makes. Semaphore+ticks serializes concurrent
+        // FetchForCelebrityAsync invocations so they queue instead of bursting.
+        private static readonly TimeSpan MinInterval = TimeSpan.FromSeconds(1);
+        private static readonly SemaphoreSlim Gate = new(1, 1);
+        private static long _lastRequestTicks;
+
         private readonly HttpClient _http;
         private readonly ILogger<MusicBrainzClient> _logger;
 
@@ -24,7 +32,7 @@ namespace StanTrack.ExternalApis
             try
             {
                 var searchUrl = $"artist?query={Uri.EscapeDataString(celebrityName)}&fmt=json&limit=1";
-                using var searchResponse = await _http.GetAsync(searchUrl, ct);
+                using var searchResponse = await GetThrottledAsync(searchUrl, ct);
                 if (!searchResponse.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("MusicBrainz artist search returned {Status} for {Name}", searchResponse.StatusCode, celebrityName);
@@ -51,7 +59,7 @@ namespace StanTrack.ExternalApis
                 // browse endpoint paginates oldest-first with no sort control, so future releases are unreachable.
                 var todayIso = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 var rgUrl = $"release-group/?query=firstreleasedate:[{todayIso} TO *] AND arid:{artistId}&fmt=json&limit=100";
-                using var rgResponse = await _http.GetAsync(rgUrl, ct);
+                using var rgResponse = await GetThrottledAsync(rgUrl, ct);
                 if (!rgResponse.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("MusicBrainz release-group search returned {Status} for artist {ArtistId}", rgResponse.StatusCode, artistId);
@@ -122,6 +130,30 @@ namespace StanTrack.ExternalApis
             }
             result = default;
             return false;
+        }
+
+        private async Task<HttpResponseMessage> GetThrottledAsync(string url, CancellationToken ct)
+        {
+            await Gate.WaitAsync(ct);
+            try
+            {
+                var lastTicks = Interlocked.Read(ref _lastRequestTicks);
+                if (lastTicks != 0)
+                {
+                    var elapsed = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - lastTicks);
+                    if (elapsed < MinInterval)
+                    {
+                        await Task.Delay(MinInterval - elapsed, ct);
+                    }
+                }
+                var response = await _http.GetAsync(url, ct);
+                Interlocked.Exchange(ref _lastRequestTicks, DateTime.UtcNow.Ticks);
+                return response;
+            }
+            finally
+            {
+                Gate.Release();
+            }
         }
     }
 }
