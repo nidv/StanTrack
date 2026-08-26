@@ -6,5 +6,6 @@ namespace StanTrack.Interfaces
         IEventRepository Events { get; }
         IFollowRepository Follows { get; }
         Task<int> SaveChangesAsync();
+        void DetachPendingEventInserts();
     }
 }

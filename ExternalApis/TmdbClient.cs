@@ -89,7 +89,7 @@ namespace StanTrack.ExternalApis
                     results2.Add(new FetchedEventDto
                     {
                         Title = title,
-                        EventType = EventType.Release,
+                        EventType = EventType.MovieRelease,
                         EventDate = releaseDate.ToUniversalTime(),
                         Source = SourceName,
                         SourceExternalId = $"movie-{movieId}",

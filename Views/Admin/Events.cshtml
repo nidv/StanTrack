@@ -29,7 +29,7 @@ else
                     <td>@ev.EventDate.ToString("yyyy-MM-dd HH:mm")</td>
                     <td>@(ev.Celebrity?.Name ?? ev.CelebrityId.ToString())</td>
                     <td>@ev.Title</td>
-                    <td>@ev.EventType</td>
+                    <td>@ev.EventType.GetDisplayName()</td>
                     <td>@ev.Source</td>
                     <td class="text-muted small">@ev.SourceExternalId</td>
                 </tr>

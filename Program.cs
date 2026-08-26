@@ -28,12 +28,19 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddHttpClient<TicketmasterClient>(c =>
-    c.BaseAddress = new Uri("https://app.ticketmaster.com/discovery/v2/"));
+{
+    c.BaseAddress = new Uri("https://app.ticketmaster.com/discovery/v2/");
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddHttpClient<TmdbClient>(c =>
-    c.BaseAddress = new Uri("https://api.themoviedb.org/3/"));
+{
+    c.BaseAddress = new Uri("https://api.themoviedb.org/3/");
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
 builder.Services.AddHttpClient<MusicBrainzClient>(c =>
 {
     c.BaseAddress = new Uri("https://musicbrainz.org/ws/2/");
+    c.Timeout = TimeSpan.FromSeconds(30);
     c.DefaultRequestHeaders.UserAgent.ParseAdd("StanTrack/1.0 (https://github.com/lexutb/StanTrack)");
 });
 builder.Services.AddScoped<IEnumerable<IEventFetchService>>(sp => new IEventFetchService[]
