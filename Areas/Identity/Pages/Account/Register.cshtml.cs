@@ -59,7 +59,10 @@ namespace StanTrack.Areas.Identity.Pages.Account
                 var user = new ApplicationUser
                 {
                     UserName = Input.Email,
-                    Email = Input.Email
+                    Email = Input.Email,
+                    // Auto-confirm email: this is a demo app; requiring email confirmation would
+                    // block password reset (which checks IsEmailConfirmedAsync) and add friction.
+                    EmailConfirmed = true
                 };
 
                 var result = await _userManager.CreateAsync(user, Input.Password);
