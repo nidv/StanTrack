@@ -1,0 +1,39 @@
+@model IReadOnlyList<StanTrack.Models.Event>
+@{
+    ViewData["Title"] = "All Events";
+}
+
+<h1>All Events (@Model.Count)</h1>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-info">No events yet. Run a sync to pull data from the external APIs.</div>
+}
+else
+{
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>Date (UTC)</th>
+                <th>Celebrity</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Source</th>
+                <th>External Id</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ev in Model)
+            {
+                <tr>
+                    <td>@ev.EventDate.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@(ev.Celebrity?.Name ?? ev.CelebrityId.ToString())</td>
+                    <td>@ev.Title</td>
+                    <td>@ev.EventType</td>
+                    <td>@ev.Source</td>
+                    <td class="text-muted small">@ev.SourceExternalId</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

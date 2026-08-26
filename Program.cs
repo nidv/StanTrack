@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using StanTrack.BackgroundJobs;
 using StanTrack.Data;
 using StanTrack.ExternalApis;
 using StanTrack.Interfaces;
@@ -39,6 +40,9 @@ builder.Services.AddScoped<IEnumerable<IEventFetchService>>(sp => new IEventFetc
     sp.GetRequiredService<TmdbClient>(),
     sp.GetRequiredService<MusicBrainzClient>(),
 });
+
+builder.Services.AddScoped<EventSyncService>();
+builder.Services.AddHostedService<StanTrackSyncBackgroundService>();
 
 var app = builder.Build();
 

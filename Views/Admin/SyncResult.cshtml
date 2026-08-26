@@ -1,0 +1,28 @@
+@model StanTrack.BackgroundJobs.EventSyncSummary
+@{
+    ViewData["Title"] = "Sync Results";
+}
+
+<h1>Sync Results</h1>
+
+<div class="alert alert-success">
+    Processed <strong>@Model.CelebritiesProcessed</strong> @(Model.CelebritiesProcessed == 1 ? "celebrity" : "celebrities"),
+    inserted <strong>@Model.EventsInserted</strong> new @(Model.EventsInserted == 1 ? "event" : "events").
+</div>
+
+@if (Model.FailuresBySource.Count > 0)
+{
+    <h2>Failures by source</h2>
+    <ul class="list-group mb-3">
+        @foreach (var kvp in Model.FailuresBySource)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                @kvp.Key
+                <span class="badge bg-danger rounded-pill">@kvp.Value</span>
+            </li>
+        }
+    </ul>
+}
+
+<a asp-controller="Admin" asp-action="Events" class="btn btn-secondary">Review Events</a>
+<a asp-controller="Celebrities" asp-action="Index" class="btn btn-primary">Browse Celebrities</a>
