@@ -22,6 +22,34 @@ namespace StanTrack.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IReadOnlyList<Event>> GetUpcomingAsync(DateTime fromUtc, int take)
+            => await context.Events
+                .Include(e => e.Celebrity)
+                .Where(e => e.EventDate >= fromUtc)
+                .OrderBy(e => e.EventDate)
+                .Take(take)
+                .ToListAsync();
+
+        public async Task<IReadOnlyList<Event>> GetAllUpcomingAsync(DateTime fromUtc)
+            => await context.Events
+                .Include(e => e.Celebrity)
+                .Where(e => e.EventDate >= fromUtc)
+                .OrderBy(e => e.EventDate)
+                .ToListAsync();
+
+        public async Task<int> GetUpcomingCountAsync(DateTime fromUtc)
+            => await context.Events
+                .Where(e => e.EventDate >= fromUtc)
+                .CountAsync();
+
+        public async Task<IReadOnlyList<Event>> GetUpcomingPaginatedAsync(DateTime fromUtc, int page, int pageSize)
+            => await context.Events
+                .Include(e => e.Celebrity)
+                .Where(e => e.EventDate >= fromUtc)
+                .OrderBy(e => e.EventDate)
+                .Take(page * pageSize)
+                .ToListAsync();
+
         public Task<bool> ExistsBySourceAsync(string source, string sourceExternalId)
             => context.Events.AnyAsync(e => e.Source == source && e.SourceExternalId == sourceExternalId);
 

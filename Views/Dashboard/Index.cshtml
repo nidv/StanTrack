@@ -1,49 +1,84 @@
+@using System
 @model StanTrack.ViewModels.DashboardViewModel
 @{
     ViewData["Title"] = "Dashboard";
 }
 
-<h1 class="mb-4">My Dashboard</h1>
-
 @if (Model.FollowedCelebrities.Count == 0)
 {
-    <div class="alert alert-info">
-        You're not following any celebrities yet. <a asp-controller="Celebrities" asp-action="Index">Browse celebrities</a> to get started.
+    <div class="empty-state">
+        <p>You're not following any celebrities yet.</p>
+        <a asp-controller="Celebrities" asp-action="Index" class="hero-stat__cta">Browse celebrities</a>
     </div>
 }
 else
 {
-    <h2 class="h4 mb-3">Following (@Model.FollowedCelebrities.Count)</h2>
-    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
-        @foreach (var celebrity in Model.FollowedCelebrities)
-        {
-            <div class="col">
-                <partial name="_CelebrityCard" model="celebrity" />
-            </div>
-        }
-    </div>
+    <div class="dash-split">
+        <section>
+            <h2 class="section-label">Following (@Model.FollowedCelebrities.Count)</h2>
+            <div class="mini-grid">
+                @foreach (var celeb in Model.FollowedCelebrities)
+                {
+                    var initials = string.Join("", celeb.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w[0])).ToUpper();
+                    if (initials.Length > 2) initials = initials[..2];
 
-    <h2 class="h4 mb-3">Upcoming Events</h2>
-    @if (Model.UpcomingEvents.Count == 0)
-    {
-        <p class="text-muted">No upcoming events for the celebrities you follow.</p>
-    }
-    else
-    {
-        <ul class="list-group">
-            @foreach (var ev in Model.UpcomingEvents)
-            {
-                <li class="list-group-item d-flex justify-content-between align-items-start">
-                    <div>
-                        <span class="text-muted">@(ev.Celebrity?.Name ?? "Unknown")</span>
-                        <br />
-                        <strong>@ev.Title</strong>
-                        <span class="badge bg-secondary ms-2">@ev.EventType.GetDisplayName()</span>
-                        <span class="text-muted ms-2">@ev.EventDate.ToString("yyyy-MM-dd")</span>
+                    <div class="mini-card">
+                        <a asp-controller="Celebrities" asp-action="Details" asp-route-id="@celeb.Id"
+                           class="mini-card__link text-decoration-none text-reset">
+                            @if (!string.IsNullOrEmpty(celeb.PhotoUrl))
+                            {
+                                <img src="@celeb.PhotoUrl" alt="@celeb.Name" class="mini-card__img" />
+                            }
+                            else
+                            {
+                                <div class="mini-card__img mini-card__img--initials">@initials</div>
+                            }
+                            <span class="mini-card__name">@celeb.Name</span>
+                        </a>
+                        <form asp-controller="Follow" asp-action="Toggle" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="celebrityId" value="@celeb.Id" />
+                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                            <button type="submit" class="mini-card__unfollow">Unfollow</button>
+                        </form>
                     </div>
-                    <a asp-controller="Celebrities" asp-action="Details" asp-route-id="@ev.CelebrityId" class="btn btn-sm btn-outline-primary">View</a>
-                </li>
+                }
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-label">Upcoming events</h2>
+            @if (Model.UpcomingEvents.Count == 0)
+            {
+                <div class="empty-state" style="padding: var(--space-xl) var(--space-sm);">
+                    <p>No upcoming events yet.</p>
+                    <p style="font-size: var(--text-xs);">Events sync every 24 hours.</p>
+                </div>
             }
-        </ul>
-    }
+            else
+            {
+                <ul class="event-list" role="list">
+                    @foreach (var ev in Model.UpcomingEvents)
+                    {
+                        var typeClass = ev.EventType switch
+                        {
+                            StanTrack.Models.Enums.EventType.Concert => "ticker__type--concert",
+                            StanTrack.Models.Enums.EventType.AlbumRelease => "ticker__type--album",
+                            StanTrack.Models.Enums.EventType.MovieRelease => "ticker__type--movie",
+                            StanTrack.Models.Enums.EventType.Birthday => "ticker__type--birthday",
+                            _ => "ticker__type--other"
+                        };
+                        <li class="event-list__item">
+                            <span class="event-list__date">@ev.EventDate.ToString("MMM dd, yyyy")</span>
+                            <span>
+                                <span class="event-list__title">@ev.Title</span>
+                                <span class="event-list__celeb"> — @ev.Celebrity?.Name</span>
+                            </span>
+                            <span class="event-list__type @typeClass">@ev.EventType.GetDisplayName()</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    </div>
 }

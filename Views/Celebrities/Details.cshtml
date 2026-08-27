@@ -2,73 +2,87 @@
 @{
     ViewData["Title"] = Model.Name;
     var upcomingEvents = ViewBag.UpcomingEvents as IReadOnlyList<StanTrack.Models.Event> ?? Array.Empty<StanTrack.Models.Event>();
+    var isFollowing = ViewBag.IsFollowing as bool? ?? false;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="mb-0">@Model.Name</h1>
-    <div class="d-flex gap-2">
-        @if (User.Identity?.IsAuthenticated == true)
-        {
-            var isFollowing = ViewBag.IsFollowing as bool? ?? false;
-            <form asp-controller="Follow" asp-action="Toggle" method="post" class="d-inline">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="celebrityId" value="@Model.Id" />
-                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                <button type="submit" class="btn @(isFollowing ? "btn-outline-danger" : "btn-primary")">
-                    @(isFollowing ? "Unfollow" : "Follow")
-                </button>
-            </form>
-        }
-        @if (User.IsInRole("Admin"))
-        {
-            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Edit</a>
-            <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">Delete</a>
-        }
-    </div>
-</div>
-
-<div class="row mb-4">
-    @if (!string.IsNullOrEmpty(Model.PhotoUrl))
-    {
-        <div class="col-md-3 mb-3">
-            <img src="@Model.PhotoUrl" alt="@Model.Name" class="img-fluid rounded" />
+<div class="container py-5">
+    <div class="detail-hero d-flex justify-content-between align-items-start mb-5">
+        <div>
+            <h1 class="detail-hero__name">@Model.Name</h1>
+            <p class="detail-hero__meta">@Model.Category</p>
         </div>
-    }
-    <div class="col-md">
-        <dl class="row">
-            <dt class="col-sm-3">Category</dt>
-            <dd class="col-sm-9">@Model.Category</dd>
+        <div class="d-flex gap-2 pt-2">
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <form asp-controller="Follow" asp-action="Toggle" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="celebrityId" value="@Model.Id" />
+                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <button type="submit" class="btn btn-follow @(isFollowing ? "btn-following" : "")">
+                        @(isFollowing ? "Unfollow" : "Follow")
+                    </button>
+                </form>
+            }
+            @if (User.IsInRole("Admin"))
+            {
+                <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">Edit</a>
+                <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-primary">Delete</a>
+            }
+        </div>
+    </div>
 
+    <div class="row mb-5">
+        @if (!string.IsNullOrEmpty(Model.PhotoUrl))
+        {
+            <div class="col-md-3 mb-3">
+                <img src="@Model.PhotoUrl" alt="@Model.Name" class="img-fluid rounded" />
+            </div>
+        }
+        <div class="col-md">
             @if (Model.DateOfBirth.HasValue)
             {
-                <dt class="col-sm-3">Born / Formed</dt>
-                <dd class="col-sm-9">@Model.DateOfBirth.Value.ToString("MMMM d, yyyy")</dd>
+                <p style="color: var(--color-muted); font-size: var(--text-sm);">
+                    Born / Formed: @Model.DateOfBirth.Value.ToString("MMMM d, yyyy")
+                </p>
             }
-
             @if (!string.IsNullOrEmpty(Model.Bio))
             {
-                <dt class="col-sm-3">Bio</dt>
-                <dd class="col-sm-9">@Model.Bio</dd>
+                <p>@Model.Bio</p>
             }
-        </dl>
+        </div>
     </div>
-</div>
 
-<h2 class="h4">Upcoming Events</h2>
-@if (upcomingEvents.Count == 0)
-{
-    <p class="text-muted">No upcoming events.</p>
-}
-else
-{
-    <ul class="list-group">
-        @foreach (var ev in upcomingEvents)
+    <section>
+        <h2 class="section-label">Upcoming events</h2>
+        @if (upcomingEvents.Count == 0)
         {
-            <li class="list-group-item">
-                <strong>@ev.Title</strong>
-                <span class="badge bg-secondary ms-2">@ev.EventType.GetDisplayName()</span>
-                <span class="text-muted ms-2">@ev.EventDate.ToString("yyyy-MM-dd")</span>
-            </li>
+            <div class="empty-state">
+                <p>No upcoming events for @Model.Name yet.</p>
+                <p style="font-size: var(--text-sm);">Events sync automatically every 24 hours.</p>
+            </div>
         }
-    </ul>
-}
+        else
+        {
+            <ul class="event-list" role="list">
+                @foreach (var ev in upcomingEvents)
+                {
+                    var typeClass = ev.EventType switch
+                    {
+                        StanTrack.Models.Enums.EventType.Concert => "ticker__type--concert",
+                        StanTrack.Models.Enums.EventType.AlbumRelease => "ticker__type--album",
+                        StanTrack.Models.Enums.EventType.MovieRelease => "ticker__type--movie",
+                        StanTrack.Models.Enums.EventType.Birthday => "ticker__type--birthday",
+                        _ => "ticker__type--other"
+                    };
+                    <li class="event-list__item">
+                        <span class="event-list__date">@ev.EventDate.ToString("MMM dd, yyyy")</span>
+                        <span>
+                            <span class="event-list__title">@ev.Title</span>
+                        </span>
+                        <span class="event-list__type @typeClass">@ev.EventType.GetDisplayName()</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</div>

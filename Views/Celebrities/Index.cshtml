@@ -1,42 +1,69 @@
 @model IReadOnlyList<StanTrack.Models.Celebrity>
 @{
     ViewData["Title"] = "Browse Celebrities";
+    var total = (int)ViewBag.Total;
+    var shown = (int)ViewBag.Page * (int)ViewBag.PageSize;
+    if (shown > total) shown = total;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="mb-0">Browse Celebrities</h1>
-    @if (User.IsInRole("Admin"))
-    {
-        <a asp-action="Create" class="btn btn-primary">Add Celebrity</a>
-    }
-</div>
-
-<form method="get" asp-action="Index" class="row g-2 mb-4">
-    <div class="col-md-6">
-        <input type="text" name="query" value="@ViewBag.Query" class="form-control" placeholder="Search by name..." />
-    </div>
-    <div class="col-md-4">
-        <select name="category" class="form-select" asp-items="ViewBag.Categories">
-            <option value="">All categories</option>
-        </select>
-    </div>
-    <div class="col-md-2">
-        <button type="submit" class="btn btn-outline-secondary w-100">Filter</button>
-    </div>
-</form>
-
-@if (Model.Count == 0)
-{
-    <div class="alert alert-info">No celebrities found.</div>
-}
-else
-{
-    <div class="row row-cols-1 row-cols-md-3 g-4">
-        @foreach (var celebrity in Model)
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="dash-hero__title">Browse Celebrities</h1>
+            <p class="dash-hero__sub">Showing @shown of @total @(total == 1 ? "celebrity" : "celebrities")</p>
+        </div>
+        @if (User.IsInRole("Admin"))
         {
-            <div class="col">
-                <partial name="_CelebrityCard" model="celebrity" />
-            </div>
+            <a asp-action="Create" class="btn-primary btn">Add Celebrity</a>
         }
     </div>
-}
+
+    <form method="get" asp-action="Index" class="row g-2 mb-5">
+        <div class="col-md-6">
+            <input type="text" name="query" value="@ViewBag.Query" class="form-control" placeholder="Search by name..." />
+        </div>
+        <div class="col-md-4">
+            <select name="category" class="form-select" asp-items="ViewBag.Categories">
+                <option value="">All categories</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn-outline-primary btn w-100">Filter</button>
+        </div>
+    </form>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty-state">
+            <p>No celebrities found.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            @for (var i = 0; i < Model.Count; i++)
+            {
+                <div class="col reveal" style="--i: @i">
+                    <partial name="_CelebrityCard" model="Model[i]" />
+                </div>
+            }
+        </div>
+
+        @if ((bool)ViewBag.HasMore)
+        {
+            <div class="text-center mt-5" id="grid-end">
+                <a asp-action="Index"
+                   asp-route-query="@ViewBag.Query"
+                   asp-route-category="@ViewBag.Category"
+                   asp-route-page="@ViewBag.NextPage"
+                   asp-fragment="grid-end"
+                   class="btn-follow btn">
+                    Load more celebrities
+                </a>
+                <p class="mt-2" style="font-size: var(--text-xs); color: var(--color-neutral);">
+                    @shown of @total shown
+                </p>
+            </div>
+        }
+    }
+</div>

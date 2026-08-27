@@ -11,6 +11,10 @@ using StanTrack.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Pin culture to invariant so date formatting is always English regardless of server locale.
+System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
+
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -24,6 +28,14 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+
+// Lock request culture — prevents Accept-Language from shifting date formatting to sv-SE etc.
+builder.Services.Configure<Microsoft.AspNetCore.Builder.RequestLocalizationOptions>(options =>
+{
+    options.DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture("en-US");
+    options.SupportedCultures = new[] { new System.Globalization.CultureInfo("en-US") };
+    options.SupportedUICultures = new[] { new System.Globalization.CultureInfo("en-US") };
+});
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 

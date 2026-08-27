@@ -39,6 +39,41 @@ namespace StanTrack.Repositories
             return await q.OrderBy(c => c.Name).ToListAsync();
         }
 
+        public async Task<IReadOnlyList<Celebrity>> SearchPaginatedAsync(string? query, string? category, int page, int pageSize)
+        {
+            var q = context.Celebrities.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                q = q.Where(c => c.Name.Contains(query));
+            }
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                q = q.Where(c => c.Category == category);
+            }
+
+            return await q
+                .OrderBy(c => c.Name)
+                .Take(page * pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> CountAsync(string? query, string? category)
+        {
+            var q = context.Celebrities.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                q = q.Where(c => c.Name.Contains(query));
+            }
+            if (!string.IsNullOrWhiteSpace(category))
+            {
+                q = q.Where(c => c.Category == category);
+            }
+
+            return await q.CountAsync();
+        }
+
         public async Task<IReadOnlyList<Celebrity>> GetAllAsync()
             => await context.Celebrities
                 .OrderBy(c => c.Name)
@@ -50,6 +85,16 @@ namespace StanTrack.Repositories
                 .Distinct()
                 .OrderBy(c => c)
                 .ToListAsync();
+
+        public async Task<IReadOnlyList<Celebrity>> GetRandomAsync(int count)
+        {
+            // EF.Functions.Random() is RAND() without seed in SQL Server — same value every batch.
+            // NEWID() is per-row, giving true random ordering.
+            var sql = $"SELECT TOP ({count}) * FROM Celebrities ORDER BY NEWID()";
+            return await context.Celebrities
+                .FromSqlRaw(sql)
+                .ToListAsync();
+        }
 
         public async Task AddAsync(Celebrity celebrity)
             => await context.Celebrities.AddAsync(celebrity);

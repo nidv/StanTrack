@@ -21,9 +21,13 @@ namespace StanTrack.Controllers
 
         // GET: /Celebrities
         [AllowAnonymous]
-        public async Task<IActionResult> Index(string? query, string? category)
+        public async Task<IActionResult> Index(string? query, string? category, int page = 1)
         {
-            var celebrities = await _uow.Celebrities.SearchAsync(query, category);
+            const int pageSize = 9;
+            if (page < 1) page = 1;
+
+            var total = await _uow.Celebrities.CountAsync(query, category);
+            var celebrities = await _uow.Celebrities.SearchPaginatedAsync(query, category, page, pageSize);
             var categories = await _uow.Celebrities.GetDistinctCategoriesAsync();
 
             var userId = _userManager.GetUserId(User);
@@ -34,6 +38,11 @@ namespace StanTrack.Controllers
             ViewBag.Query = query;
             ViewBag.Category = category;
             ViewBag.Categories = new SelectList(categories, category);
+            ViewBag.Page = page;
+            ViewBag.PageSize = pageSize;
+            ViewBag.Total = total;
+            ViewBag.HasMore = page * pageSize < total;
+            ViewBag.NextPage = page + 1;
             ViewData["FollowedCelebrityIds"] = followedIds;
 
             return View(celebrities);
@@ -96,7 +105,30 @@ namespace StanTrack.Controllers
             };
 
             await _uow.Celebrities.AddAsync(celebrity);
-            await _uow.SaveChangesAsync();
+            await _uow.SaveChangesAsync(); // celebrity.Id now assigned
+
+            if (celebrity.DateOfBirth.HasValue)
+            {
+                var today = DateTime.UtcNow.Date;
+                var dob = celebrity.DateOfBirth.Value;
+                var nextBirthday = new DateTime(today.Year, dob.Month, dob.Day);
+                if (nextBirthday < today)
+                {
+                    nextBirthday = nextBirthday.AddYears(1);
+                }
+
+                var birthdayEvent = new Event
+                {
+                    CelebrityId = celebrity.Id,
+                    Title = $"{celebrity.Name}'s birthday",
+                    EventType = Models.Enums.EventType.Birthday,
+                    EventDate = nextBirthday,
+                    Source = "Manual"
+                };
+
+                await _uow.Events.AddAsync(birthdayEvent);
+                await _uow.SaveChangesAsync();
+            }
 
             return RedirectToAction(nameof(Details), new { id = celebrity.Id });
         }
