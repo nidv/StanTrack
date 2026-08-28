@@ -10,5 +10,12 @@ namespace StanTrack.Dtos
         public string Source { get; set; } = string.Empty;
         public string SourceExternalId { get; set; } = string.Empty;
         public string? Description { get; set; }
+
+        // Location — populated by Ticketmaster; null for other sources.
+        public string? Venue { get; set; }
+        public string? City { get; set; }
+        public string? Country { get; set; }
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
     }
 }

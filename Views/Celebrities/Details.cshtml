@@ -78,6 +78,13 @@
                         <span class="event-list__date">@ev.EventDate.ToString("MMM dd, yyyy")</span>
                         <span>
                             <span class="event-list__title">@ev.Title</span>
+                            @{
+                                var location = StanTrack.Models.EventLocation.Format(ev);
+                            }
+                            @if (!string.IsNullOrEmpty(location))
+                            {
+                                <span class="event-list__location">@location</span>
+                            }
                         </span>
                         <span class="event-list__type @typeClass">@ev.EventType.GetDisplayName()</span>
                     </li>
