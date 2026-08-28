@@ -74,6 +74,29 @@ namespace StanTrack.Controllers
             return PartialView("_CelebrityCardList", celebrities);
         }
 
+        // GET: /Celebrities/SearchPartial?query=taylor
+        // Live-search endpoint. Returns the N closest name matches across all
+        // categories (typing auto-clears the category pill client-side, so this
+        // is intentionally category-blind). No pagination — results replace the
+        // grid, the Load-more button hides while a search is active.
+        [AllowAnonymous]
+        public async Task<IActionResult> SearchPartial(string? query)
+        {
+            const int maxResults = 20;
+
+            var celebrities = string.IsNullOrWhiteSpace(query)
+                ? Array.Empty<Models.Celebrity>()
+                : await _uow.Celebrities.SearchPaginatedAsync(query, category: null, page: 1, pageSize: maxResults);
+
+            var userId = _userManager.GetUserId(User);
+            ViewData["FollowedCelebrityIds"] = userId is null
+                ? new HashSet<int>()
+                : new HashSet<int>(await _uow.Follows.GetFollowedCelebrityIdsAsync(userId));
+
+            Response.Headers["X-SearchCount"] = celebrities.Count().ToString();
+            return PartialView("_CelebrityCardList", celebrities);
+        }
+
         // GET: /Celebrities/Details/5
         [AllowAnonymous]
         public async Task<IActionResult> Details(int id)

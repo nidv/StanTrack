@@ -18,9 +18,16 @@
         }
     </div>
 
-    <form method="get" asp-action="Index" class="row g-2 mb-3">
+    <form method="get" asp-action="Index" class="row g-2 mb-3" id="celebrity-search-form">
         <div class="col-md-10">
-            <input type="text" name="query" value="@ViewBag.Query" class="form-control" placeholder="Search by name..." />
+            <input type="text"
+                   name="query"
+                   id="celebrity-search-input"
+                   value="@ViewBag.Query"
+                   class="form-control"
+                   placeholder="Search by name..."
+                   autocomplete="off"
+                   data-search-url="@Url.Action("SearchPartial", "Celebrities")" />
         </div>
         <div class="col-md-2">
             <button type="submit" class="btn-outline-primary btn w-100">Search</button>
@@ -36,53 +43,62 @@
         var categories = (SelectList)ViewBag.Categories;
         var activeCategory = (string?)ViewBag.Category ?? "";
     }
-    <div class="d-flex flex-wrap gap-2 mb-5" role="group" aria-label="Filter by category">
+    <div class="d-flex flex-wrap gap-2 mb-5"
+         role="group"
+         aria-label="Filter by category"
+         id="category-pills"
+         data-active-category="@activeCategory">
         <a asp-action="Index"
-           asp-route-query="@ViewBag.Query"
-           class="btn btn-sm @(string.IsNullOrEmpty(activeCategory) ? "btn-primary" : "btn-outline-primary")">
+           class="btn btn-sm btn-outline-primary @(string.IsNullOrEmpty(activeCategory) ? "btn-primary" : "")"
+           data-category-pill
+           data-category="">
             All
         </a>
         @foreach (var c in categories)
         {
             <a asp-action="Index"
-               asp-route-query="@ViewBag.Query"
                asp-route-category="@c.Text"
-               class="btn btn-sm @(activeCategory == c.Text ? "btn-primary" : "btn-outline-primary")">
+               class="btn btn-sm btn-outline-primary @(activeCategory == c.Text ? "btn-primary" : "")"
+               data-category-pill
+               data-category="@c.Text">
                 @c.Text
             </a>
         }
     </div>
 
+    <div id="celebrity-no-results" class="empty-state" style="display:none;">
+        <p>No celebrities match your search.</p>
+    </div>
     @if (Model.Count == 0)
     {
-        <div class="empty-state">
+        <div class="empty-state" id="celebrity-initial-empty">
             <p>No celebrities found.</p>
         </div>
     }
-    else
-    {
-        <div class="row row-cols-1 row-cols-md-3 g-4"
-             id="celebrity-grid"
-             data-partial-url="@Url.Action("ListPartial", "Celebrities")"
-             data-param-query="@ViewBag.Query"
-             data-param-category="@ViewBag.Category">
-            <partial name="_CelebrityCardList" model="Model" />
-        </div>
+    @* Grid is always rendered (even when empty) so the live-search JS has a
+       stable container to inject results into; CSS hides it when page 1 is empty. *@
+    <div class="row row-cols-1 row-cols-md-3 g-4"
+         id="celebrity-grid"
+         style="@(Model.Count == 0 ? "display:none;" : "")"
+         data-partial-url="@Url.Action("ListPartial", "Celebrities")"
+         data-param-query="@ViewBag.Query"
+         data-param-category="@ViewBag.Category">
+        <partial name="_CelebrityCardList" model="Model" />
+    </div>
 
-        @if (hasMore)
-        {
-            <div class="text-center mt-5" id="grid-end">
-                <button type="button"
-                        class="btn-follow btn"
-                        data-load-more
-                        data-target="#celebrity-grid"
-                        data-next-page="2">
-                    Load more celebrities
-                </button>
-                <p class="mt-2" style="font-size: var(--text-xs); color: var(--color-neutral);">
-                    <span data-celebrity-shown>@shown</span> of @total shown
-                </p>
-            </div>
-        }
+    @if (hasMore)
+    {
+        <div class="text-center mt-5" id="grid-end">
+            <button type="button"
+                    class="btn-follow btn"
+                    data-load-more
+                    data-target="#celebrity-grid"
+                    data-next-page="2">
+                Load more celebrities
+            </button>
+            <p class="mt-2" style="font-size: var(--text-xs); color: var(--color-neutral);">
+                <span data-celebrity-shown>@shown</span> of @total shown
+            </p>
+        </div>
     }
 </div>
