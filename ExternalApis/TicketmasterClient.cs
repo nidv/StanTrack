@@ -98,6 +98,58 @@ namespace StanTrack.ExternalApis
                         description = note.GetString();
                     }
 
+                    // Venue / city / country / coords — Ticketmaster embeds a venues[] array
+                    // per event, we take the first one. Any individual field can be missing
+                    // and stays null on the DTO.
+                    string? venue = null;
+                    string? city = null;
+                    string? country = null;
+                    double? latitude = null;
+                    double? longitude = null;
+                    if (ev.TryGetProperty("_embedded", out var evEmbedded) &&
+                        evEmbedded.TryGetProperty("venues", out var venues) &&
+                        venues.ValueKind == JsonValueKind.Array &&
+                        venues.GetArrayLength() > 0)
+                    {
+                        var v = venues[0];
+                        if (v.TryGetProperty("name", out var vName) && vName.ValueKind == JsonValueKind.String)
+                        {
+                            venue = vName.GetString();
+                        }
+                        if (v.TryGetProperty("city", out var vCity) &&
+                            vCity.TryGetProperty("name", out var vCityName) &&
+                            vCityName.ValueKind == JsonValueKind.String)
+                        {
+                            city = vCityName.GetString();
+                        }
+                        if (v.TryGetProperty("country", out var vCountry))
+                        {
+                            // Some events surface countryCode only, some country.name. Prefer the
+                            // display name when both exist.
+                            if (vCountry.TryGetProperty("name", out var vCountryName) && vCountryName.ValueKind == JsonValueKind.String)
+                            {
+                                country = vCountryName.GetString();
+                            }
+                            else if (vCountry.TryGetProperty("countryCode", out var vCountryCode) && vCountryCode.ValueKind == JsonValueKind.String)
+                            {
+                                country = vCountryCode.GetString();
+                            }
+                        }
+                        if (v.TryGetProperty("location", out var vLocation))
+                        {
+                            if (vLocation.TryGetProperty("latitude", out var vLat) &&
+                                double.TryParse(vLat.GetString(), out var latParsed))
+                            {
+                                latitude = latParsed;
+                            }
+                            if (vLocation.TryGetProperty("longitude", out var vLng) &&
+                                double.TryParse(vLng.GetString(), out var lngParsed))
+                            {
+                                longitude = lngParsed;
+                            }
+                        }
+                    }
+
                     results.Add(new FetchedEventDto
                     {
                         Title = title,
@@ -105,7 +157,12 @@ namespace StanTrack.ExternalApis
                         EventDate = eventDate,
                         Source = SourceName,
                         SourceExternalId = externalId,
-                        Description = description
+                        Description = description,
+                        Venue = venue,
+                        City = city,
+                        Country = country,
+                        Latitude = latitude,
+                        Longitude = longitude
                     });
                 }
                 return results;

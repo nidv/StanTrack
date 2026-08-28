@@ -14,6 +14,13 @@
         <span>
             <span class="event-list__title">@ev.Title</span>
             <span class="event-list__celeb"> — @ev.Celebrity?.Name</span>
+            @{
+                var location = EventLocation.Format(ev);
+            }
+            @if (!string.IsNullOrEmpty(location))
+            {
+                <span class="event-list__location">@location</span>
+            }
         </span>
         <span class="event-list__type @typeClass">@ev.EventType.GetDisplayName()</span>
     </li>
