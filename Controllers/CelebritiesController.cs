@@ -21,13 +21,12 @@ namespace StanTrack.Controllers
 
         // GET: /Celebrities
         [AllowAnonymous]
-        public async Task<IActionResult> Index(string? query, string? category, int page = 1)
+        public async Task<IActionResult> Index(string? query, string? category)
         {
             const int pageSize = 9;
-            if (page < 1) page = 1;
 
             var total = await _uow.Celebrities.CountAsync(query, category);
-            var celebrities = await _uow.Celebrities.SearchPaginatedAsync(query, category, page, pageSize);
+            var celebrities = await _uow.Celebrities.SearchPaginatedAsync(query, category, 1, pageSize);
             var categories = await _uow.Celebrities.GetDistinctCategoriesAsync();
 
             var userId = _userManager.GetUserId(User);
@@ -38,14 +37,41 @@ namespace StanTrack.Controllers
             ViewBag.Query = query;
             ViewBag.Category = category;
             ViewBag.Categories = new SelectList(categories, category);
-            ViewBag.Page = page;
-            ViewBag.PageSize = pageSize;
             ViewBag.Total = total;
-            ViewBag.HasMore = page * pageSize < total;
-            ViewBag.NextPage = page + 1;
+            ViewBag.HasMore = pageSize < total;
             ViewData["FollowedCelebrityIds"] = followedIds;
 
             return View(celebrities);
+        }
+
+        // GET: /Celebrities/ListPartial?query=&category=&page=2
+        // Returns just the card grid markup for one page slice (no layout) so the
+        // "Load more" button can fetch + append without re-fetching prior pages.
+        [AllowAnonymous]
+        public async Task<IActionResult> ListPartial(string? query, string? category, int page = 1)
+        {
+            const int pageSize = 9;
+            if (page < 1) page = 1;
+
+            var total = await _uow.Celebrities.CountAsync(query, category);
+            var celebrities = await _uow.Celebrities.SearchPaginatedAsync(query, category, page, pageSize);
+
+            var userId = _userManager.GetUserId(User);
+            var followedIds = userId is null
+                ? new HashSet<int>()
+                : new HashSet<int>(await _uow.Follows.GetFollowedCelebrityIdsAsync(userId));
+
+            ViewData["FollowedCelebrityIds"] = followedIds;
+            // Offset for the CSS stagger-delay custom property so appended cards
+            // continue the cascade from where the previous batch left off visually.
+            ViewBag.RevealOffset = (page - 1) * pageSize;
+
+            // Pagination state goes to the JS handler via headers, not markup,
+            // so the grid stays a pure list of cards.
+            Response.Headers["X-HasMore"] = ((long)page * pageSize < total).ToString();
+            Response.Headers["X-NextPage"] = (page + 1).ToString();
+
+            return PartialView("_CelebrityCardList", celebrities);
         }
 
         // GET: /Celebrities/Details/5

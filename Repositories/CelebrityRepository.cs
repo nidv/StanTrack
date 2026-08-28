@@ -54,7 +54,8 @@ namespace StanTrack.Repositories
 
             return await q
                 .OrderBy(c => c.Name)
-                .Take(page * pageSize)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
         }
 

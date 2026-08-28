@@ -1,0 +1,15 @@
+@model IReadOnlyList<StanTrack.Models.Celebrity>
+@{
+    // Used for both the initial page-1 render (from Index) and "Load more"
+    // appends (from ListPartial). RevealOffset lets appended cards continue the
+    // stagger cascade from where the previous batch left off.
+    // Pagination state travels via X-HasMore / X-NextPage response headers, read
+    // by the Load-more JS handler in site.js.
+    var offset = (int)(ViewBag.RevealOffset ?? 0);
+}
+@for (var i = 0; i < Model.Count; i++)
+{
+    <div class="col reveal" style="--i: @(offset + i)">
+        <partial name="_CelebrityCard" model="Model[i]" />
+    </div>
+}

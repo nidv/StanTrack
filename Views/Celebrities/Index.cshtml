@@ -2,15 +2,15 @@
 @{
     ViewData["Title"] = "Browse Celebrities";
     var total = (int)ViewBag.Total;
-    var shown = (int)ViewBag.Page * (int)ViewBag.PageSize;
-    if (shown > total) shown = total;
+    var shown = Model.Count;
+    var hasMore = (bool)ViewBag.HasMore;
 }
 
 <div class="container py-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="dash-hero__title">Browse Celebrities</h1>
-            <p class="dash-hero__sub">Showing @shown of @total @(total == 1 ? "celebrity" : "celebrities")</p>
+            <p class="dash-hero__sub"><span data-celebrity-shown>@shown</span> of @total @(total == 1 ? "celebrity" : "celebrities")</p>
         </div>
         @if (User.IsInRole("Admin"))
         {
@@ -40,28 +40,26 @@
     }
     else
     {
-        <div class="row row-cols-1 row-cols-md-3 g-4">
-            @for (var i = 0; i < Model.Count; i++)
-            {
-                <div class="col reveal" style="--i: @i">
-                    <partial name="_CelebrityCard" model="Model[i]" />
-                </div>
-            }
+        <div class="row row-cols-1 row-cols-md-3 g-4"
+             id="celebrity-grid"
+             data-partial-url="@Url.Action("ListPartial", "Celebrities")"
+             data-param-query="@ViewBag.Query"
+             data-param-category="@ViewBag.Category">
+            <partial name="_CelebrityCardList" model="Model" />
         </div>
 
-        @if ((bool)ViewBag.HasMore)
+        @if (hasMore)
         {
             <div class="text-center mt-5" id="grid-end">
-                <a asp-action="Index"
-                   asp-route-query="@ViewBag.Query"
-                   asp-route-category="@ViewBag.Category"
-                   asp-route-page="@ViewBag.NextPage"
-                   asp-fragment="grid-end"
-                   class="btn-follow btn">
+                <button type="button"
+                        class="btn-follow btn"
+                        data-load-more
+                        data-target="#celebrity-grid"
+                        data-next-page="2">
                     Load more celebrities
-                </a>
+                </button>
                 <p class="mt-2" style="font-size: var(--text-xs); color: var(--color-neutral);">
-                    @shown of @total shown
+                    <span data-celebrity-shown>@shown</span> of @total shown
                 </p>
             </div>
         }

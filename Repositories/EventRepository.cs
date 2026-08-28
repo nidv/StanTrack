@@ -47,7 +47,8 @@ namespace StanTrack.Repositories
                 .Include(e => e.Celebrity)
                 .Where(e => e.EventDate >= fromUtc)
                 .OrderBy(e => e.EventDate)
-                .Take(page * pageSize)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
         public Task<bool> ExistsBySourceAsync(string source, string sourceExternalId)

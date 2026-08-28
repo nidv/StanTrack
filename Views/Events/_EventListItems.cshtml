@@ -1,0 +1,20 @@
+@model IReadOnlyList<StanTrack.Models.Event>
+@foreach (var ev in Model)
+{
+    var typeClass = ev.EventType switch
+    {
+        StanTrack.Models.Enums.EventType.Concert => "ticker__type--concert",
+        StanTrack.Models.Enums.EventType.AlbumRelease => "ticker__type--album",
+        StanTrack.Models.Enums.EventType.MovieRelease => "ticker__type--movie",
+        StanTrack.Models.Enums.EventType.Birthday => "ticker__type--birthday",
+        _ => "ticker__type--other"
+    };
+    <li class="event-list__item">
+        <span class="event-list__date">@ev.EventDate.ToString("MMM dd, yyyy")</span>
+        <span>
+            <span class="event-list__title">@ev.Title</span>
+            <span class="event-list__celeb"> — @ev.Celebrity?.Name</span>
+        </span>
+        <span class="event-list__type @typeClass">@ev.EventType.GetDisplayName()</span>
+    </li>
+}

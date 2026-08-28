@@ -1,12 +1,15 @@
 @model IReadOnlyList<StanTrack.Models.Event>
 @{
     ViewData["Title"] = "Upcoming Events";
+    var total = (int)ViewBag.Total;
+    var shown = Model.Count;
+    var hasMore = (bool)ViewBag.HasMore;
 }
 
 <div class="container py-5">
     <div class="mb-5">
         <h1 class="dash-hero__title">Upcoming events</h1>
-        <p class="dash-hero__sub">Showing @ViewBag.Shown of @ViewBag.Total events across all tracked celebrities.</p>
+        <p class="dash-hero__sub"><span data-event-shown>@shown</span> of @total events across all tracked celebrities.</p>
     </div>
 
     @if (Model.Count == 0)
@@ -18,39 +21,26 @@
     }
     else
     {
-        <ul class="event-list" role="list">
-            @foreach (var ev in Model)
-            {
-                var typeClass = ev.EventType switch
-                {
-                    StanTrack.Models.Enums.EventType.Concert => "ticker__type--concert",
-                    StanTrack.Models.Enums.EventType.AlbumRelease => "ticker__type--album",
-                    StanTrack.Models.Enums.EventType.MovieRelease => "ticker__type--movie",
-                    StanTrack.Models.Enums.EventType.Birthday => "ticker__type--birthday",
-                    _ => "ticker__type--other"
-                };
-                <li class="event-list__item">
-                    <span class="event-list__date">@ev.EventDate.ToString("MMM dd, yyyy")</span>
-                    <span>
-                        <span class="event-list__title">@ev.Title</span>
-                        <span class="event-list__celeb"> — @ev.Celebrity?.Name</span>
-                    </span>
-                    <span class="event-list__type @typeClass">@ev.EventType.GetDisplayName()</span>
-                </li>
-            }
+        <ul class="event-list"
+            role="list"
+            id="event-list"
+            data-partial-url="@Url.Action("ListPartial", "Events")"
+            data-total="@total">
+            <partial name="_EventListItems" model="Model" />
         </ul>
 
-        @if ((bool)ViewBag.HasMore)
+        @if (hasMore)
         {
             <div class="text-center mt-5" id="grid-end">
-                <a asp-action="Index"
-                   asp-route-page="@ViewBag.NextPage"
-                   asp-fragment="grid-end"
-                   class="btn-follow btn">
+                <button type="button"
+                        class="btn-follow btn"
+                        data-load-more
+                        data-target="#event-list"
+                        data-next-page="2">
                     Load more events
-                </a>
+                </button>
                 <p class="mt-2" style="font-size: var(--text-xs); color: var(--color-neutral);">
-                    @ViewBag.Shown of @ViewBag.Total shown
+                    <span data-event-shown>@shown</span> of @total shown
                 </p>
             </div>
         }
