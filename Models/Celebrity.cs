@@ -1,5 +1,10 @@
+using Microsoft.EntityFrameworkCore;
+
 namespace StanTrack.Models
 {
+    [Index(nameof(Category))]
+    [Index(nameof(Name))]
+    [Index(nameof(Category), nameof(Name))]
     public class Celebrity
     {
         public int Id { get; set; }

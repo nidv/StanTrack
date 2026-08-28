@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using StanTrack.Data;
 
@@ -11,9 +12,11 @@ using StanTrack.Data;
 namespace StanTrack.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260828094046_indexing")]
+    partial class indexing
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -240,7 +243,7 @@ namespace StanTrack.Data.Migrations
 
                     b.Property<string>("Category")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("CreatedByUserId")
                         .IsRequired()
@@ -251,20 +254,14 @@ namespace StanTrack.Data.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PhotoUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Category");
-
                     b.HasIndex("CreatedByUserId");
-
-                    b.HasIndex("Name");
-
-                    b.HasIndex("Category", "Name");
 
                     b.ToTable("Celebrities");
                 });
@@ -333,9 +330,7 @@ namespace StanTrack.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EventDate");
-
-                    b.HasIndex("CelebrityId", "EventDate");
+                    b.HasIndex("CelebrityId");
 
                     b.HasIndex("Source", "SourceExternalId")
                         .IsUnique()

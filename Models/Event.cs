@@ -1,7 +1,10 @@
+using Microsoft.EntityFrameworkCore;
 using StanTrack.Models.Enums;
 
 namespace StanTrack.Models
 {
+    [Index(nameof(EventDate))]
+    [Index(nameof(CelebrityId), nameof(EventDate))]
     public class Event
     {
         public int Id { get; set; }
