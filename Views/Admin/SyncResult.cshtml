@@ -10,6 +10,32 @@
     inserted <strong>@Model.EventsInserted</strong> new @(Model.EventsInserted == 1 ? "event" : "events").
 </div>
 
+@if (Model.CountsBySource.Count > 0)
+{
+    <h2>Per-source counts</h2>
+    <table class="table table-sm mb-3">
+        <thead>
+            <tr>
+                <th>Source</th>
+                <th class="text-end">Inserted</th>
+                <th class="text-end">Already in DB</th>
+                <th class="text-end">Dup in run</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var kvp in Model.CountsBySource)
+            {
+                <tr>
+                    <td>@kvp.Key</td>
+                    <td class="text-end">@kvp.Value.Inserted</td>
+                    <td class="text-end">@kvp.Value.ExistingInDb</td>
+                    <td class="text-end">@kvp.Value.DuplicateInRun</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
 @if (Model.FailuresBySource.Count > 0)
 {
     <h2>Failures by source</h2>

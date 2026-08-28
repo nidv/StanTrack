@@ -33,6 +33,14 @@ namespace StanTrack.BackgroundJobs
             ["TMDb"] = FilmCategories,
         };
 
+        // MusicBrainz returns future releases for ~6% of artists, so once we've seen a zero-yield
+        // sync we skip MB for that celebrity for this many days before re-checking.
+        private static readonly TimeSpan MusicBrainzRecheckInterval = TimeSpan.FromDays(30);
+
+        // TM+TMDb fan-out batch size. High enough to matter, low enough to avoid blowing
+        // HTTP/2 connection pools at the OS level.
+        private const int ParallelBatchSize = 20;
+
         public EventSyncService(
             IUnitOfWork uow,
             IEnumerable<IEventFetchService> fetchers,
@@ -41,28 +49,61 @@ namespace StanTrack.BackgroundJobs
             _uow = uow;
             _logger = logger;
             _allFetchers = fetchers.ToList();
-            // MusicBrainz has its own in-process throttle (static gate, 1 req/s) that correctly
-            // serializes concurrent calls — running it via Task.WhenAll along with the other
-            // fetchers stays safe.
         }
 
         public async Task<EventSyncSummary> RunAsync(CancellationToken ct = default)
         {
             var summary = new EventSyncSummary();
             var celebrities = await _uow.Celebrities.GetAllAsync();
-            // The pre-check ExistsBySourceAsync only sees committed rows; it does NOT see
-            // events already added to the change tracker this run but not yet flushed (we only
-            // SaveChanges once per celebrity). Without this set, the same (Source, SourceExternalId)
-            // can be queued twice in one batch and the unique index rejects the whole flush.
-            var queuedThisRun = new HashSet<(string Source, string ExternalId)>();
+            var now = DateTime.UtcNow;
+
+            // Phase 1 (parallel): sources with no rate limit (TM, TMDb) fanned out across all
+            // applicable celebrities. MusicBrainz deliberately excluded — its in-process
+            // throttle would serialize everything anyway, so it goes in the serial phase.
+            var fastFetchers = _allFetchers
+                .Where(f => !string.Equals(f.SourceName, "MusicBrainz", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            await FetchFastSourcesParallelAsync(celebrities, fastFetchers, summary, ct);
+
+            // Phase 2 (serial): MusicBrainz only for celebrities due a recheck. A celebrity
+            // whose last MB fetch returned 0 and who was synced recently is skipped.
+            var mbFetcher = _allFetchers.FirstOrDefault(f =>
+                string.Equals(f.SourceName, "MusicBrainz", StringComparison.OrdinalIgnoreCase));
 
             foreach (var celebrity in celebrities)
             {
                 ct.ThrowIfCancellationRequested();
-                summary.CelebritiesProcessed++;
+                var fetched = new List<FetchedEventDto>();
 
-                var fetched = await FetchAllForCelebrityAsync(celebrity, summary, ct);
+                if (mbFetcher is not null &&
 
+                    CategoriesBySource["MusicBrainz"].Contains(celebrity.Category))
+                {
+                    var dueForRecheck =
+                        !celebrity.LastEventSyncAt.HasValue ||
+                        celebrity.LastMusicBrainzYield is null or > 0 ||
+                        now - celebrity.LastEventSyncAt.Value >= MusicBrainzRecheckInterval;
+
+                    if (dueForRecheck)
+                    {
+                        var mbResults = await SafeFetchAsync(mbFetcher, celebrity.Name, summary, ct);
+                        fetched.AddRange(mbResults);
+                        celebrity.LastMusicBrainzYield = mbResults.Count;
+                    }
+                }
+
+                // Phase 1 results for this celebrity were stashed during FetchFastSourcesParallelAsync.
+                if (summary.FastResultsByCelebrity.TryGetValue(celebrity.Id, out var fastDtos))
+                {
+                    fetched.AddRange(fastDtos);
+                }
+
+                celebrity.LastEventSyncAt = now;
+
+                // The pre-check ExistsBySourceAsync only sees committed rows; it does NOT see
+                // events already added to the change tracker this run but not yet flushed (we only
+                // SaveChanges once per celebrity). Without this set, the same (Source, SourceExternalId)
+                // can be queued twice in one batch and the unique index rejects the whole flush.
                 foreach (var dto in fetched)
                 {
                     if (string.IsNullOrEmpty(dto.Source) || string.IsNullOrEmpty(dto.SourceExternalId))
@@ -70,13 +111,17 @@ namespace StanTrack.BackgroundJobs
                         continue;
                     }
 
-                    if (!queuedThisRun.Add((dto.Source, dto.SourceExternalId)))
+                    var counts = summary.ForSource(dto.Source);
+
+                    if (!summary.QueuedThisRun.Add((dto.Source, dto.SourceExternalId)))
                     {
+                        counts.DuplicateInRun++;
                         continue;
                     }
 
                     if (await _uow.Events.ExistsBySourceAsync(dto.Source, dto.SourceExternalId))
                     {
+                        counts.ExistingInDb++;
                         continue;
                     }
 
@@ -88,10 +133,18 @@ namespace StanTrack.BackgroundJobs
                         EventDate = dto.EventDate,
                         Source = dto.Source,
                         SourceExternalId = dto.SourceExternalId,
-                        Description = dto.Description
+                        Description = dto.Description,
+                        Venue = dto.Venue,
+                        City = dto.City,
+                        Country = dto.Country,
+                        Latitude = dto.Latitude,
+                        Longitude = dto.Longitude
                     });
+                    counts.Inserted++;
                     summary.EventsInserted++;
                 }
+
+                summary.CelebritiesProcessed++;
 
                 try
                 {
@@ -115,30 +168,54 @@ namespace StanTrack.BackgroundJobs
                 summary.EventsInserted,
                 summary.FailuresBySource);
 
+            foreach (var kvp in summary.CountsBySource)
+            {
+                _logger.LogInformation(
+                    "  {Source}: inserted={Inserted}, already-in-db={ExistingInDb}, dup-in-run={DuplicateInRun}",
+                    kvp.Key, kvp.Value.Inserted, kvp.Value.ExistingInDb, kvp.Value.DuplicateInRun);
+            }
+
             return summary;
         }
 
-        private async Task<IReadOnlyList<FetchedEventDto>> FetchAllForCelebrityAsync(
-            Celebrity celebrity,
+        // Phase 1: hits TM+TMDb for every applicable celebrity concurrently, in batches of
+        // ParallelBatchSize, and stashes the DTOs on the summary keyed by celebrity id so the
+        // serial per-celebrity loop in RunAsync can pick them up. No DB writes here — the
+        // per-celebrity insert path stays serialized through the normal loop.
+        private async Task FetchFastSourcesParallelAsync(
+            IReadOnlyList<Celebrity> celebrities,
+            IReadOnlyList<IEventFetchService> fastFetchers,
             EventSyncSummary summary,
             CancellationToken ct)
         {
-            var tasks = new List<Task<IReadOnlyList<FetchedEventDto>>>();
-
-            foreach (var fetcher in _allFetchers)
+            if (fastFetchers.Count == 0)
             {
-                // Category filter: skip fetchers whose domain doesn't match this celebrity's category.
-                // A lookup miss in the dict means the source applies to every category.
-                if (CategoriesBySource.TryGetValue(fetcher.SourceName, out var applicable)
-                    && !applicable.Contains(celebrity.Category))
-                {
-                    continue;
-                }
-                tasks.Add(SafeFetchAsync(fetcher, celebrity.Name, summary, ct));
+                return;
             }
 
-            var perSource = await Task.WhenAll(tasks);
-            return perSource.SelectMany(list => list).ToList();
+            foreach (var batch in celebrities.Chunk(ParallelBatchSize))
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var batchTasks = batch.Select(async celebrity =>
+                {
+                    var fetcherTasks = fastFetchers
+                        .Where(f =>
+                            !CategoriesBySource.TryGetValue(f.SourceName, out var applicable) ||
+                            applicable.Contains(celebrity.Category))
+                        .Select(f => SafeFetchAsync(f, celebrity.Name, summary, ct))
+                        .ToList();
+
+                    var perSource = await Task.WhenAll(fetcherTasks);
+                    var dtos = perSource.SelectMany(list => list).ToList();
+                    lock (summary.FastResultsByCelebrity)
+                    {
+                        summary.FastResultsByCelebrity[celebrity.Id] = dtos;
+                    }
+                });
+
+                await Task.WhenAll(batchTasks);
+            }
         }
 
         private async Task<IReadOnlyList<FetchedEventDto>> SafeFetchAsync(
