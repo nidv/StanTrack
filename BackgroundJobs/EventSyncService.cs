@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using StanTrack.Data;
 using StanTrack.Dtos;
 using StanTrack.Interfaces;
 using StanTrack.Models;
@@ -7,6 +9,7 @@ namespace StanTrack.BackgroundJobs
     public class EventSyncService
     {
         private readonly IUnitOfWork _uow;
+        private readonly IDbContextFactory<ApplicationDbContext> _contextFactory;
         private readonly IReadOnlyList<IEventFetchService> _allFetchers;
         private readonly ILogger<EventSyncService> _logger;
 
@@ -41,12 +44,19 @@ namespace StanTrack.BackgroundJobs
         // HTTP/2 connection pools at the OS level.
         private const int ParallelBatchSize = 20;
 
+        // DB insert parallelism: each worker owns a slice of celebrities and its own DbContext
+        // from IDbContextFactory (DbContext is not thread-safe). LocalDB tolerates ~8 concurrent
+        // writers comfortably; beyond that lock/contention costs more than the parallelism saves.
+        private const int InsertParallelism = 8;
+
         public EventSyncService(
             IUnitOfWork uow,
+            IDbContextFactory<ApplicationDbContext> contextFactory,
             IEnumerable<IEventFetchService> fetchers,
             ILogger<EventSyncService> logger)
         {
             _uow = uow;
+            _contextFactory = contextFactory;
             _logger = logger;
             _allFetchers = fetchers.ToList();
         }
@@ -56,6 +66,11 @@ namespace StanTrack.BackgroundJobs
             var summary = new EventSyncSummary();
             var celebrities = await _uow.Celebrities.GetAllAsync();
             var now = DateTime.UtcNow;
+
+            // Preload every existing (Source, SourceExternalId) in one query. Without this the
+            // per-event loop issues one EXISTS roundtrip per candidate (thousands per run),
+            // which is the dominant cost when the DB is mostly up to date.
+            var existingKeys = await _uow.Events.GetAllSourceKeysAsync();
 
             // Phase 1 (parallel): sources with no rate limit (TM, TMDb) fanned out across all
             // applicable celebrities. MusicBrainz deliberately excluded — its in-process
@@ -70,13 +85,14 @@ namespace StanTrack.BackgroundJobs
             var mbFetcher = _allFetchers.FirstOrDefault(f =>
                 string.Equals(f.SourceName, "MusicBrainz", StringComparison.OrdinalIgnoreCase));
 
+            // celebrityId -> updated MB yield, applied during the parallel insert pass.
+            var mbYields = new System.Collections.Concurrent.ConcurrentDictionary<int, int?>();
+
             foreach (var celebrity in celebrities)
             {
                 ct.ThrowIfCancellationRequested();
-                var fetched = new List<FetchedEventDto>();
 
                 if (mbFetcher is not null &&
-
                     CategoriesBySource["MusicBrainz"].Contains(celebrity.Category))
                 {
                     var dueForRecheck =
@@ -87,80 +103,28 @@ namespace StanTrack.BackgroundJobs
                     if (dueForRecheck)
                     {
                         var mbResults = await SafeFetchAsync(mbFetcher, celebrity.Name, summary, ct);
-                        fetched.AddRange(mbResults);
-                        celebrity.LastMusicBrainzYield = mbResults.Count;
+                        mbYields[celebrity.Id] = mbResults.Count;
+                        lock (summary.FastResultsByCelebrity)
+                        {
+                            if (summary.FastResultsByCelebrity.TryGetValue(celebrity.Id, out var existing))
+                            {
+                                existing.AddRange(mbResults);
+                            }
+                            else
+                            {
+                                summary.FastResultsByCelebrity[celebrity.Id] = mbResults.ToList();
+                            }
+                        }
                     }
-                }
-
-                // Phase 1 results for this celebrity were stashed during FetchFastSourcesParallelAsync.
-                if (summary.FastResultsByCelebrity.TryGetValue(celebrity.Id, out var fastDtos))
-                {
-                    fetched.AddRange(fastDtos);
-                }
-
-                celebrity.LastEventSyncAt = now;
-
-                // The pre-check ExistsBySourceAsync only sees committed rows; it does NOT see
-                // events already added to the change tracker this run but not yet flushed (we only
-                // SaveChanges once per celebrity). Without this set, the same (Source, SourceExternalId)
-                // can be queued twice in one batch and the unique index rejects the whole flush.
-                foreach (var dto in fetched)
-                {
-                    if (string.IsNullOrEmpty(dto.Source) || string.IsNullOrEmpty(dto.SourceExternalId))
-                    {
-                        continue;
-                    }
-
-                    var counts = summary.ForSource(dto.Source);
-
-                    if (!summary.QueuedThisRun.Add((dto.Source, dto.SourceExternalId)))
-                    {
-                        counts.DuplicateInRun++;
-                        continue;
-                    }
-
-                    if (await _uow.Events.ExistsBySourceAsync(dto.Source, dto.SourceExternalId))
-                    {
-                        counts.ExistingInDb++;
-                        continue;
-                    }
-
-                    await _uow.Events.AddAsync(new Event
-                    {
-                        CelebrityId = celebrity.Id,
-                        Title = dto.Title,
-                        EventType = dto.EventType,
-                        EventDate = dto.EventDate,
-                        Source = dto.Source,
-                        SourceExternalId = dto.SourceExternalId,
-                        Description = dto.Description,
-                        Venue = dto.Venue,
-                        City = dto.City,
-                        Country = dto.Country,
-                        Latitude = dto.Latitude,
-                        Longitude = dto.Longitude
-                    });
-                    counts.Inserted++;
-                    summary.EventsInserted++;
                 }
 
                 summary.CelebritiesProcessed++;
-
-                try
-                {
-                    await _uow.SaveChangesAsync();
-                }
-                catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
-                {
-                    // Unique-index still wins if some other path pushed the same (Source, SourceExternalId)
-                    // between our check and our commit (two admins pressing Sync at once, the 24h timer
-                    // and the manual button racing, etc). Detach the failed adds so the next
-                    // celebrity's flush doesn't retry them, then keep going — the next sync will
-                    // re-fetch anything that was actually new and not yet in the DB.
-                    _logger.LogWarning(ex, "Save failed for {Name}; detaching pending inserts and continuing", celebrity.Name);
-                    _uow.DetachPendingEventInserts();
-                }
             }
+
+            // Phase 3 (parallel): build Event entities in memory, dedupe against the preloaded
+            // set + this-run adds, then partition celebrities across InsertParallelism workers
+            // that each get their own DbContext and save their slice in one roundtrip.
+            await InsertEventsParallelAsync(celebrities, existingKeys, mbYields, now, summary, ct);
 
             _logger.LogInformation(
                 "Event sync completed: {CelebritiesProcessed} celebrities, {EventsInserted} events inserted, failures by source: {@Failures}",
@@ -180,8 +144,7 @@ namespace StanTrack.BackgroundJobs
 
         // Phase 1: hits TM+TMDb for every applicable celebrity concurrently, in batches of
         // ParallelBatchSize, and stashes the DTOs on the summary keyed by celebrity id so the
-        // serial per-celebrity loop in RunAsync can pick them up. No DB writes here — the
-        // per-celebrity insert path stays serialized through the normal loop.
+        // insert pass can pick them up. No DB writes here.
         private async Task FetchFastSourcesParallelAsync(
             IReadOnlyList<Celebrity> celebrities,
             IReadOnlyList<IEventFetchService> fastFetchers,
@@ -215,6 +178,140 @@ namespace StanTrack.BackgroundJobs
                 });
 
                 await Task.WhenAll(batchTasks);
+            }
+        }
+
+        // Phase 3: builds new Event entities celebrity-by-celebrity (deduped), then fans the
+        // celebrities across InsertParallelism workers. Each worker flushes its slice via one
+        // SaveChanges on its own context. DbContext is not thread-safe; parallel writers must
+        // each hold a private instance.
+        private async Task InsertEventsParallelAsync(
+            IReadOnlyList<Celebrity> celebrities,
+            HashSet<(string Source, string SourceExternalId)> existingKeys,
+            System.Collections.Concurrent.ConcurrentDictionary<int, int?> mbYields,
+            DateTime now,
+            EventSyncSummary summary,
+            CancellationToken ct)
+        {
+            // Per-celebrity new-event buckets. Built serially so the dedup set stays a plain
+            // HashSet — contention on a concurrent set would erase the win.
+            var newEventsByCeleb = new Dictionary<int, List<Event>>();
+
+            foreach (var celebrity in celebrities)
+            {
+                if (!summary.FastResultsByCelebrity.TryGetValue(celebrity.Id, out var fetched) || fetched.Count == 0)
+                {
+                    continue;
+                }
+
+                List<Event>? bucket = null;
+                foreach (var dto in fetched)
+                {
+                    if (string.IsNullOrEmpty(dto.Source) || string.IsNullOrEmpty(dto.SourceExternalId))
+                    {
+                        continue;
+                    }
+
+                    var counts = summary.ForSource(dto.Source);
+                    var key = (dto.Source, dto.SourceExternalId);
+
+                    if (!summary.QueuedThisRun.Add(key))
+                    {
+                        counts.DuplicateInRun++;
+                        continue;
+                    }
+
+                    if (existingKeys.Contains(key))
+                    {
+                        counts.ExistingInDb++;
+                        continue;
+                    }
+
+                    bucket ??= new List<Event>();
+                    bucket.Add(new Event
+                    {
+                        CelebrityId = celebrity.Id,
+                        Title = dto.Title,
+                        EventType = dto.EventType,
+                        EventDate = dto.EventDate,
+                        Source = dto.Source,
+                        SourceExternalId = dto.SourceExternalId,
+                        Description = dto.Description,
+                        Venue = dto.Venue,
+                        City = dto.City,
+                        Country = dto.Country,
+                        Latitude = dto.Latitude,
+                        Longitude = dto.Longitude
+                    });
+                    counts.Inserted++;
+                    summary.EventsInserted++;
+                }
+
+                if (bucket is not null)
+                {
+                    newEventsByCeleb[celebrity.Id] = bucket;
+                }
+            }
+
+            // Round-robin partition of celebrities across workers. Round-robin (not Chunk)
+            // evens out per-celebrity insert-count skew so no single worker gets a run of
+            // heavy celebrities.
+            var workerSlices = Enumerable.Range(0, InsertParallelism)
+                .Select(_ => new List<Celebrity>())
+                .ToArray();
+            for (var i = 0; i < celebrities.Count; i++)
+            {
+                workerSlices[i % InsertParallelism].Add(celebrities[i]);
+            }
+
+            var workerTasks = workerSlices
+                .Where(slice => slice.Count > 0)
+                .Select(slice => FlushSliceAsync(slice, newEventsByCeleb, mbYields, now, ct))
+                .ToList();
+
+            await Task.WhenAll(workerTasks);
+        }
+
+        private async Task FlushSliceAsync(
+            List<Celebrity> slice,
+            Dictionary<int, List<Event>> newEventsByCeleb,
+            System.Collections.Concurrent.ConcurrentDictionary<int, int?> mbYields,
+            DateTime now,
+            CancellationToken ct)
+        {
+            await using var ctx = await _contextFactory.CreateDbContextAsync(ct);
+
+            foreach (var celebrity in slice)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                // Attach the tracked celebrity so the bookkeeping column updates flow through
+                // EF's change tracker without an extra SELECT. The instance came from a
+                // different context, so Attach marks it unchanged and we mutate the two fields.
+                ctx.Celebrities.Attach(celebrity);
+                celebrity.LastEventSyncAt = now;
+                if (mbYields.TryGetValue(celebrity.Id, out var yield))
+                {
+                    celebrity.LastMusicBrainzYield = yield;
+                }
+
+                if (newEventsByCeleb.TryGetValue(celebrity.Id, out var events))
+                {
+                    ctx.Events.AddRange(events);
+                }
+            }
+
+            try
+            {
+                await ctx.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex)
+            {
+                // Unique-index still wins if some other path pushed the same (Source,
+                // SourceExternalId) between the initial key preload and this flush (manual
+                // admin sync racing the 24h timer, etc). Log and continue — the next sync
+                // will pick up anything still missing.
+                _logger.LogWarning(ex, "Save failed for slice ({Count} celebrities); continuing", slice.Count);
             }
         }
 

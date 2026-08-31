@@ -54,13 +54,19 @@ namespace StanTrack.Repositories
         public Task<bool> ExistsBySourceAsync(string source, string sourceExternalId)
             => context.Events.AnyAsync(e => e.Source == source && e.SourceExternalId == sourceExternalId);
 
+        public async Task<HashSet<(string Source, string SourceExternalId)>> GetAllSourceKeysAsync()
+        {
+            var rows = await context.Events
+                .Where(e => e.SourceExternalId != null)
+                .Select(e => new { e.Source, e.SourceExternalId })
+                .ToListAsync();
+            return rows
+                .Select(r => (r.Source, r.SourceExternalId!))
+                .ToHashSet();
+        }
+
         public async Task AddAsync(Event ev)
             => await context.Events.AddAsync(ev);
 
-        public async Task<IReadOnlyList<Event>> GetAllForAdminReviewAsync()
-            => await context.Events
-                .Include(e => e.Celebrity)
-                .OrderByDescending(e => e.EventDate)
-                .ToListAsync();
     }
 }

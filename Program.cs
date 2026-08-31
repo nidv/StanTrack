@@ -17,7 +17,11 @@ System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globaliz
 
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+// AddDbContextFactory alone registers both the singleton IDbContextFactory and the scoped
+// ApplicationDbContext (via the factory). Registering AddDbContext separately conflicts:
+// the singleton factory cannot consume the scoped DbContextOptions that plain AddDbContext adds.
+// EventSyncService uses the factory directly to give each parallel insert worker its own context.
+builder.Services.AddDbContextFactory<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
