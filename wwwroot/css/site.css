@@ -826,7 +826,8 @@ a:hover {
 }
 
 .detail-hero {
-  padding-block: var(--space-2xl);
+  padding-block-start: var(--space-2xl);
+  padding-block-end: var(--space-md);
 }
 
 .detail-hero__name {
@@ -839,6 +840,7 @@ a:hover {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--color-neutral);
+  margin-block-end: 0;
 }
 
 .empty-state {

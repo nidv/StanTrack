@@ -11,7 +11,7 @@
     <a asp-controller="Celebrities" asp-action="Details" asp-route-id="@Model.Id" class="stretched-link text-decoration-none text-reset">
         @if (!string.IsNullOrEmpty(Model.PhotoUrl))
         {
-            <img src="@Model.PhotoUrl" class="card-img-top" alt="@Model.Name" style="object-fit:cover; max-height:220px;" />
+            <img src="@Model.PhotoUrl" class="card-img-top" alt="@Model.Name" style="object-fit:cover; object-position:center 20%; max-height:280px;" />
         }
         else
         {
