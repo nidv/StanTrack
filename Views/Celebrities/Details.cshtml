@@ -34,12 +34,12 @@
             {
                 <form asp-controller="Admin" asp-action="SyncForCelebrity" asp-route-id="@Model.Id" method="post" class="d-inline">
                     @Html.AntiForgeryToken()
-                    <button type="submit" class="btn btn-outline-secondary" title="Re-fetch events from external APIs for this celebrity only">
+                    <button type="submit" class="btn btn-outline-primary" title="Re-fetch events from external APIs for this celebrity only">
                         Sync events
                     </button>
                 </form>
                 <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">Edit</a>
-                <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-primary">Delete</a>
+                <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-danger">Delete</a>
             }
         </div>
     </div>

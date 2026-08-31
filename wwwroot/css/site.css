@@ -569,6 +569,20 @@ a:hover {
   --bs-btn-active-border-color: var(--color-rule);
 }
 
+/* The Bloom palette has no red token; this red sits at hue 0 (vs the pink accent at 350),
+   chosen to read as "danger, distinct from accent" against the dark paper without clashing
+   with the pink. Rest state is outlined; hover fills it in for an obvious affordance. */
+.btn-outline-danger {
+  --bs-btn-color: oklch(70% 0.18 25);
+  --bs-btn-border-color: oklch(70% 0.18 25);
+  --bs-btn-hover-bg: oklch(70% 0.18 25);
+  --bs-btn-hover-border-color: oklch(70% 0.18 25);
+  --bs-btn-hover-color: var(--color-paper);
+  --bs-btn-active-bg: oklch(64% 0.18 25);
+  --bs-btn-active-border-color: oklch(64% 0.18 25);
+  --bs-btn-active-color: var(--color-paper);
+}
+
 .btn-follow {
   font-family: var(--font-body);
   font-weight: 600;
