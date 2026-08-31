@@ -30,8 +30,6 @@
 @if (Model.Count > 0)
 {
     <section class="ticker" aria-label="Upcoming events">
-        <div class="ticker__mask ticker__mask--top"></div>
-        <p class="ticker__label">Now tracking &mdash; upcoming</p>
         <div class="ticker__track" id="tickerTrack">
             @{
                 var items = Model.ToList();
@@ -72,7 +70,6 @@
                 </div>
             }
         </div>
-        <div class="ticker__mask ticker__mask--bottom"></div>
     </section>
 }
 
