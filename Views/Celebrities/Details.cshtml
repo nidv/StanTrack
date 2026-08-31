@@ -6,6 +6,13 @@
 }
 
 <div class="container py-5">
+    @if (TempData["AdminSyncResult"] is string adminSyncResult)
+    {
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            @adminSyncResult
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
     <div class="detail-hero d-flex justify-content-between align-items-start">
         <div>
             <h1 class="detail-hero__name">@Model.Name</h1>
@@ -25,6 +32,12 @@
             }
             @if (User.IsInRole("Admin"))
             {
+                <form asp-controller="Admin" asp-action="SyncForCelebrity" asp-route-id="@Model.Id" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-outline-secondary" title="Re-fetch events from external APIs for this celebrity only">
+                        Sync events
+                    </button>
+                </form>
                 <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-outline-primary">Edit</a>
                 <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-outline-primary">Delete</a>
             }

@@ -142,6 +142,104 @@ namespace StanTrack.BackgroundJobs
             return summary;
         }
 
+        // Single-celebrity variant driven by the admin "Sync this celebrity" button on the
+        // details page. Skips the 30-day MB recheck (admin explicitly asked, so always fetch)
+        // and skips the parallel fan-out orchestration — only one celebrity, so the Task.WhenAll
+        // ceremony is overhead.
+        public async Task<EventSyncSummary?> RunForCelebrityAsync(int celebrityId, CancellationToken ct = default)
+        {
+            var celebrity = await _uow.Celebrities.GetByIdAsync(celebrityId);
+            if (celebrity is null)
+            {
+                return null;
+            }
+
+            var summary = new EventSyncSummary();
+            var now = DateTime.UtcNow;
+            var existingKeys = await _uow.Events.GetAllSourceKeysAsync();
+
+            foreach (var fetcher in _allFetchers)
+            {
+                if (CategoriesBySource.TryGetValue(fetcher.SourceName, out var applicable) &&
+                    !applicable.Contains(celebrity.Category))
+                {
+                    continue;
+                }
+
+                var dtos = await SafeFetchAsync(fetcher, celebrity.Name, summary, ct);
+                lock (summary.FastResultsByCelebrity)
+                {
+                    summary.FastResultsByCelebrity[celebrity.Id] =
+                        summary.FastResultsByCelebrity.TryGetValue(celebrity.Id, out var existing)
+                            ? existing.Concat(dtos).ToList()
+                            : dtos.ToList();
+                }
+
+                if (string.Equals(fetcher.SourceName, "MusicBrainz", StringComparison.OrdinalIgnoreCase))
+                {
+                    celebrity.LastMusicBrainzYield = dtos.Count;
+                }
+            }
+
+            summary.CelebritiesProcessed = 1;
+            celebrity.LastEventSyncAt = now;
+
+            // Single celebrity: insert inline (no parallel workers needed). Dedup against
+            // existingKeys + QueuedThisRun, save once, recover on unique-index race.
+            foreach (var dto in summary.FastResultsByCelebrity[celebrity.Id])
+            {
+                if (string.IsNullOrEmpty(dto.Source) || string.IsNullOrEmpty(dto.SourceExternalId))
+                {
+                    continue;
+                }
+
+                var counts = summary.ForSource(dto.Source);
+                var key = (dto.Source, dto.SourceExternalId);
+
+                if (!summary.QueuedThisRun.Add(key))
+                {
+                    counts.DuplicateInRun++;
+                    continue;
+                }
+
+                if (existingKeys.Contains(key))
+                {
+                    counts.ExistingInDb++;
+                    continue;
+                }
+
+                await _uow.Events.AddAsync(new Event
+                {
+                    CelebrityId = celebrity.Id,
+                    Title = dto.Title,
+                    EventType = dto.EventType,
+                    EventDate = dto.EventDate,
+                    Source = dto.Source,
+                    SourceExternalId = dto.SourceExternalId,
+                    Description = dto.Description,
+                    Venue = dto.Venue,
+                    City = dto.City,
+                    Country = dto.Country,
+                    Latitude = dto.Latitude,
+                    Longitude = dto.Longitude
+                });
+                counts.Inserted++;
+                summary.EventsInserted++;
+            }
+
+            try
+            {
+                await _uow.SaveChangesAsync();
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                _uow.DetachPendingEventInserts();
+                _logger.LogWarning(ex, "Save failed for celebrity {CelebrityId}; continuing", celebrity.Id);
+            }
+
+            return summary;
+        }
+
         // Phase 1: hits TM+TMDb for every applicable celebrity concurrently, in batches of
         // ParallelBatchSize, and stashes the DTOs on the summary keyed by celebrity id so the
         // insert pass can pick them up. No DB writes here.
