@@ -20,7 +20,7 @@ namespace StanTrack.Models
     public DateTime? LastEventSyncAt { get; set; }
     // Count of MusicBrainz events returned on the last sync. Null = never synced.
     public int? LastMusicBrainzYield { get; set; }   // birth date for people, inception date for groups
-        public string CreatedByUserId { get; set; } = string.Empty;
+        public string? CreatedByUserId { get; set; } 
         public ApplicationUser? CreatedBy { get; set; }
         public ICollection<Event> Events { get; set; } = new List<Event>();
         public ICollection<Follow> Follows { get; set; } = new List<Follow>();

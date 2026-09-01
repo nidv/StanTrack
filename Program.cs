@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Scalar.AspNetCore;
 using StanTrack.BackgroundJobs;
 using StanTrack.Data;
 using StanTrack.ExternalApis;
@@ -32,6 +33,7 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 builder.Services.AddControllersWithViews();
+builder.Services.AddOpenApi();
 
 // Lock request culture — prevents Accept-Language from shifting date formatting to sv-SE etc.
 builder.Services.Configure<Microsoft.AspNetCore.Builder.RequestLocalizationOptions>(options =>
@@ -78,6 +80,8 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 else
 {
