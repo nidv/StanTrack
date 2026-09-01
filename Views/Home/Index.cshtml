@@ -8,12 +8,12 @@
 <section class="hero-stat">
     @if (eventCount > 0)
     {
-        <p class="hero-stat__figure">Stan your celebs</p>
-        <p class="hero-stat__label">@eventCount+ upcoming events tracked</p>
+        <p class="hero-stat__figure">@eventCount+</p>
+        <p class="hero-stat__label">upcoming events tracked</p>
     }
     else
     {
-        <p class="hero-stat__label" style="font-family: var(--font-display); font-weight: 800; font-size: var(--text-display-s); max-width: 20ch; letter-spacing: -0.03em;">Every concert, premiere, and album drop — tracked.</p>
+        <p class="hero-stat__headline">Every concert, premiere, and album drop — tracked.</p>
     }
     <div class="mt-3">
         @if (User.Identity?.IsAuthenticated != true)

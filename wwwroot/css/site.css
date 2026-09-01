@@ -60,6 +60,13 @@
   --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
+  /* --- Durations --- */
+  --dur-short: 220ms;
+  --dur-long:  420ms;
+
+  /* --- Page gutter --- */
+  --page-gutter: var(--space-lg);
+
   /* --- Named z-index scale --- */
   --z-base:     1;
   --z-raised:   10;
@@ -125,7 +132,7 @@ a {
   color: var(--color-accent);
   text-decoration: underline;
   text-underline-offset: 2px;
-  transition: color var(--dur-short, 220ms) var(--ease-out);
+  transition: color var(--dur-short) var(--ease-out);
 }
 
 a:hover {
@@ -211,8 +218,8 @@ a:hover {
   text-decoration: none;
   padding: 2px var(--space-sm);
   border-radius: var(--radius-pill);
-  transition: color var(--dur-short, 220ms) var(--ease-out),
-              background-color var(--dur-short, 220ms) var(--ease-out);
+  transition: color var(--dur-short) var(--ease-out),
+              background-color var(--dur-short) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -237,8 +244,8 @@ a:hover {
   color: var(--color-accent);
   background: transparent;
   border-radius: var(--radius-pill);
-  transition: background-color var(--dur-short, 220ms) var(--ease-out),
-              color var(--dur-short, 220ms) var(--ease-out),
+  transition: background-color var(--dur-short) var(--ease-out),
+              color var(--dur-short) var(--ease-out),
               transform 100ms var(--ease-out);
   white-space: nowrap;
 }
@@ -286,6 +293,21 @@ a:hover {
   line-height: 1.5;
 }
 
+/* Zero-event fallback headline — sits in the same visual slot as __figure
+   but for running text instead of a number. Capped one rung below
+   --text-display because the copy is > 50 chars (per hero sizing rules). */
+.hero-stat__headline {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-display);
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  color: var(--color-ink);
+  max-width: 22ch;
+  margin: 0 auto;
+  overflow-wrap: anywhere;
+}
+
 .hero-stat__cta {
   font-family: var(--font-body);
   font-weight: 600;
@@ -294,7 +316,7 @@ a:hover {
   text-decoration: none;
   border-bottom: 2px solid var(--color-accent);
   padding-bottom: 2px;
-  transition: padding-bottom var(--dur-short, 220ms) var(--ease-out);
+  transition: padding-bottom var(--dur-short) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -455,7 +477,7 @@ a:hover {
    ============================================================ */
 
 .footer-stmt {
-  padding: var(--space-3xl) var(--page-gutter, var(--space-lg)) var(--space-xl);
+  padding: var(--space-3xl) var(--page-gutter) var(--space-xl);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
@@ -592,8 +614,8 @@ a:hover {
   border-radius: var(--radius-pill);
   background: var(--color-paper-2);
   color: var(--color-neutral);
-  transition: background-color var(--dur-short, 220ms) var(--ease-out),
-              color var(--dur-short, 220ms) var(--ease-out),
+  transition: background-color var(--dur-short) var(--ease-out),
+              color var(--dur-short) var(--ease-out),
               transform 100ms var(--ease-out);
   white-space: nowrap;
 }
@@ -640,7 +662,7 @@ a:hover {
   align-items: baseline;
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--color-rule);
-  transition: background-color var(--dur-short, 220ms) var(--ease-out);
+  transition: background-color var(--dur-short) var(--ease-out);
 }
 
 /* Mobile: stack into one column */
@@ -818,8 +840,8 @@ a:hover {
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-neutral);
-  transition: background-color var(--dur-short, 220ms) var(--ease-out),
-              color var(--dur-short, 220ms) var(--ease-out),
+  transition: background-color var(--dur-short) var(--ease-out),
+              color var(--dur-short) var(--ease-out),
               transform 100ms var(--ease-out);
   white-space: nowrap;
 }
@@ -872,7 +894,7 @@ a:hover {
 .reveal {
   opacity: 0;
   transform: translateY(8px);
-  animation: reveal var(--dur-long, 420ms) var(--ease-out) forwards;
+  animation: reveal var(--dur-long) var(--ease-out) forwards;
   animation-delay: calc(var(--i, 0) * 60ms);
 }
 

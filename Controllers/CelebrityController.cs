@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using StanTrack.Filters;
 using StanTrack.Models;
 using StanTrack.Models.Dtos;
 using StanTrack.Data;
@@ -32,8 +33,10 @@ public class CelebrityController : ControllerBase
     }
 
     // POST: api/celebrity
+    // Gated by Key header against ApiKeys:CelebrityWrite in config; signed-in
+    // Identity alone is not sufficient.
     [HttpPost]
-    [AllowAnonymous]
+    [RequireApiKey("CelebrityWrite")]
     public async Task<ActionResult<CelebrityResponse>> Create(CelebrityCreateRequest request)
     {
         var celebrity = new Celebrity
@@ -43,7 +46,7 @@ public class CelebrityController : ControllerBase
             Bio = request.Bio,
             PhotoUrl = request.PhotoUrl,
             DateOfBirth = request.DateOfBirth,
-            // AllowAnonymous for testing: null when no user is signed in.
+            // Null when no user is signed in; the API key allows anonymous-creator writes.
             CreatedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier),
         };
 
