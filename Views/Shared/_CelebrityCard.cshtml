@@ -5,6 +5,13 @@
     var isSignedIn = User.Identity?.IsAuthenticated == true;
     var initials = string.Join("", Model.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w[0])).ToUpper();
     if (initials.Length > 2) initials = initials[..2];
+
+    // When this card is rendered inside a partial (SearchPartial / ListPartial),
+    // Context.Request.Path points at the partial endpoint, not a real page.
+    // Following a celeb would then redirect back to bare HTML. The controller
+    // sets ReturnUrlOverride to a full-page URL so Follow/Toggle lands correctly.
+    var returnUrl = ViewData["ReturnUrlOverride"] as string
+        ?? $"{Context.Request.Path}{Context.Request.QueryString}";
 }
 
 <div class="card h-100 card-clickable position-relative">
@@ -31,7 +38,7 @@
                 <form asp-controller="Follow" asp-action="Toggle" method="post" class="d-inline">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="celebrityId" value="@Model.Id" />
-                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
                     <button type="submit" class="btn btn-sm btn-follow @(isFollowing ? "btn-following" : "")">
                         @(isFollowing ? "Unfollow" : "Follow")
                     </button>

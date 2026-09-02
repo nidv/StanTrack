@@ -65,6 +65,9 @@ namespace StanTrack.Controllers
             // Offset for the CSS stagger-delay custom property so appended cards
             // continue the cascade from where the previous batch left off visually.
             ViewBag.RevealOffset = (page - 1) * pageSize;
+            // POSTs from inside these cards (Follow toggle) should land back on
+            // the real Index page, not this bare-partial endpoint.
+            ViewData["ReturnUrlOverride"] = Url.Action(nameof(Index), new { query, category });
 
             // Pagination state goes to the JS handler via headers, not markup,
             // so the grid stays a pure list of cards.
@@ -92,6 +95,10 @@ namespace StanTrack.Controllers
             ViewData["FollowedCelebrityIds"] = userId is null
                 ? new HashSet<int>()
                 : new HashSet<int>(await _uow.Follows.GetFollowedCelebrityIdsAsync(userId));
+
+            // Same trap as ListPartial — without this, Follow redirects back here
+            // and the browser gets bare partial HTML (white page, no layout).
+            ViewData["ReturnUrlOverride"] = Url.Action(nameof(Index), new { query });
 
             Response.Headers["X-SearchCount"] = celebrities.Count().ToString();
             return PartialView("_CelebrityCardList", celebrities);
