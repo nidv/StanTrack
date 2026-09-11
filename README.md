@@ -2,6 +2,8 @@
 
 StanTrack is a web app for keeping up with the celebrities you follow. Browse a directory of actors, musicians, and K-pop acts, follow the ones you care about, and see their upcoming events in one dashboard: concerts, movie and TV releases, album drops, and birthdays.
 
+<sub>StanTrack is hosted on Azure's free tier, which spins the site down after a stretch of inactivity. If it's been a while since the last visit, the first load may take a few minutes while the server wakes up.</sub>
+
 ## What it does
 
 - **Celebrity directory** — browse and search hundreds of celebrities across film, music, and K-pop, with photos and bios.
