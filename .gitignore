@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 *.docx
 appsettings.Development.json
+
+# Tooling state and local editor/assistant files
+.vscode/
